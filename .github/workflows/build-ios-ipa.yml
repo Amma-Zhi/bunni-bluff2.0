@@ -67,7 +67,7 @@ jobs:
           /usr/bin/zip -qry ../BunniBluff-unsigned.ipa Payload
 
       - name: Upload IPA
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: BunniBluff-iOS-AltStore
           path: build/BunniBluff-unsigned.ipa
