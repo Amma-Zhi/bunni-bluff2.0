@@ -181,34 +181,45 @@ class SoundEngine {
       const basePopFreq = 350 + (stepIndex % 8) * 60;
       popOsc.type = 'sine';
       popOsc.frequency.setValueAtTime(basePopFreq, now);
-      popOsc.frequency.exponentialRampToValueAtTime(basePopFreq * 2.2, now + 0.06);
+      popOsc.frequency.exponentialRampToValueAtTime(basePopFreq * 2.2, now + 0.1);
 
-      popGain.gain.setValueAtTime(0.22, now);
-      popGain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
+      popGain.gain.setValueAtTime(0.25, now);
+      popGain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
 
       popOsc.connect(popGain);
       popGain.connect(this.ctx.destination);
 
       popOsc.start(now);
-      popOsc.stop(now + 0.08);
+      popOsc.stop(now + 0.12);
 
-      // 2. High sparkle sheen tone ("闪烁")
-      const sparkleOsc = this.ctx.createOscillator();
-      const sparkleGain = this.ctx.createGain();
+      // 2. High sparkle sheen tone cascade ("闪烁音效", synchronized duration ~0.4s)
+      const scaleNotes = [1046.50, 1318.51, 1567.98, 2093.00]; // C6, E6, G6, C7
+      const startNoteIdx = stepIndex % 4;
+      const notesToPlay = [
+        scaleNotes[startNoteIdx],
+        scaleNotes[(startNoteIdx + 1) % scaleNotes.length],
+        scaleNotes[(startNoteIdx + 2) % scaleNotes.length],
+      ];
 
-      const sparkleFreq = 1500 + (stepIndex % 8) * 180;
-      sparkleOsc.type = 'triangle';
-      sparkleOsc.frequency.setValueAtTime(sparkleFreq, now + 0.02);
-      sparkleOsc.frequency.exponentialRampToValueAtTime(sparkleFreq * 1.3, now + 0.1);
+      notesToPlay.forEach((freq, i) => {
+        if (!this.ctx) return;
+        const sparkleOsc = this.ctx.createOscillator();
+        const sparkleGain = this.ctx.createGain();
 
-      sparkleGain.gain.setValueAtTime(0.12, now + 0.02);
-      sparkleGain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
+        const delay = 0.03 + i * 0.08;
+        sparkleOsc.type = 'triangle';
+        sparkleOsc.frequency.setValueAtTime(freq, now + delay);
+        sparkleOsc.frequency.exponentialRampToValueAtTime(freq * 1.15, now + delay + 0.18);
 
-      sparkleOsc.connect(sparkleGain);
-      sparkleGain.connect(this.ctx.destination);
+        sparkleGain.gain.setValueAtTime(0.14, now + delay);
+        sparkleGain.gain.exponentialRampToValueAtTime(0.001, now + delay + 0.22);
 
-      sparkleOsc.start(now + 0.02);
-      sparkleOsc.stop(now + 0.12);
+        sparkleOsc.connect(sparkleGain);
+        sparkleGain.connect(this.ctx.destination);
+
+        sparkleOsc.start(now + delay);
+        sparkleOsc.stop(now + delay + 0.22);
+      });
     } catch {
       // Ignore
     }
@@ -300,30 +311,31 @@ class SoundEngine {
     }
   }
 
-  // Magical Joker spark sound
+  // Magical Joker spark sound (synchronized duration ~0.45s)
   public playJokerTrigger() {
     if (this.isMuted || !this.sfxEnabled) return;
     if (!this.isUnlocked() || !this.ctx) return;
 
     try {
       const now = this.ctx.currentTime;
-      const notes = [523.25, 659.25, 783.99, 1046.50];
+      const notes = [523.25, 659.25, 783.99, 1046.50, 1318.51];
       notes.forEach((freq, idx) => {
         if (!this.ctx) return;
         const osc = this.ctx.createOscillator();
         const gain = this.ctx.createGain();
 
+        const delay = idx * 0.07;
         osc.type = 'triangle';
-        osc.frequency.setValueAtTime(freq, now + idx * 0.04);
+        osc.frequency.setValueAtTime(freq, now + delay);
 
-        gain.gain.setValueAtTime(0.1, now + idx * 0.04);
-        gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.04 + 0.15);
+        gain.gain.setValueAtTime(0.12, now + delay);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + delay + 0.22);
 
         osc.connect(gain);
         gain.connect(this.ctx.destination);
 
-        osc.start(now + idx * 0.04);
-        osc.stop(now + idx * 0.04 + 0.15);
+        osc.start(now + delay);
+        osc.stop(now + delay + 0.22);
       });
     } catch {
       // Ignore

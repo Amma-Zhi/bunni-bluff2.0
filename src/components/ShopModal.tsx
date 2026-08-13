@@ -254,77 +254,106 @@ export const ShopModal: React.FC<ShopModalProps> = ({
 
             {/* Available Jokers and Consumables for sale */}
             <div className="flex items-center gap-3 overflow-x-auto pb-2 pt-1">
-              {shopJokers.map((joker) => (
-                <JokerCard
-                  key={joker.id}
-                  item={joker}
-                  type="joker"
-                  isShopItem
-                  price={joker.cost}
-                  isDisabled={money < joker.cost || jokers.length >= 5}
-                  onClick={() => {
-                    if (money >= joker.cost && jokers.length < 5) {
-                      soundEngine.playCoin();
-                      onBuyJoker(joker);
-                    }
-                  }}
-                />
-              ))}
+              {shopJokers.map((joker) => {
+                const isJokerFull = jokers.length >= 5;
+                const canAfford = money >= joker.cost;
+                return (
+                  <div key={joker.id} className="relative group/shopitem">
+                    <JokerCard
+                      item={joker}
+                      type="joker"
+                      isShopItem
+                      price={joker.cost}
+                      isDisabled={!canAfford || isJokerFull}
+                      onClick={() => {
+                        if (canAfford && !isJokerFull) {
+                          soundEngine.playCoin();
+                          onBuyJoker(joker);
+                        }
+                      }}
+                    />
+                    {isJokerFull && (
+                      <div className="absolute inset-x-1 bottom-8 bg-rose-600/90 text-white font-black text-[10px] py-1 rounded-md text-center shadow-md border border-white pointer-events-none z-20">
+                        小丑位已满 (5/5)
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
 
-              {shopConsumables.map((item) => (
-                <JokerCard
-                  key={item.id}
-                  item={item}
-                  type={'targetSuit' in item ? 'tarot' : 'planet'}
-                  isShopItem
-                  price={item.cost}
-                  isDisabled={money < item.cost || consumables.length >= 2}
-                  onClick={() => {
-                    if (money >= item.cost && consumables.length < 2) {
-                      soundEngine.playCoin();
-                      onBuyConsumable(item);
-                    }
-                  }}
-                />
-              ))}
+              {shopConsumables.map((item) => {
+                const isConsumableFull = consumables.length >= 2;
+                const canAfford = money >= item.cost;
+                return (
+                  <div key={item.id} className="relative group/shopitem">
+                    <JokerCard
+                      item={item}
+                      type={'targetSuit' in item ? 'tarot' : 'planet'}
+                      isShopItem
+                      price={item.cost}
+                      isDisabled={!canAfford || isConsumableFull}
+                      onClick={() => {
+                        if (canAfford && !isConsumableFull) {
+                          soundEngine.playCoin();
+                          onBuyConsumable(item);
+                        }
+                      }}
+                    />
+                    {isConsumableFull && (
+                      <div className="absolute inset-x-1 bottom-8 bg-indigo-600/90 text-white font-black text-[10px] py-1 rounded-md text-center shadow-md border border-white pointer-events-none z-20">
+                        消耗牌位已满 (2/2)
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
 
             {/* Section 3: Booster Packs & Vouchers Grid matching Image 2 */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
               {/* Packs */}
-              {shopPacks.map((pack) => (
-                <div
-                  key={pack.id}
-                  className="bg-[#FFF5F7]/90 p-3 rounded-2xl border-2 border-dashed border-[#F8A4B8] shadow-2xs flex items-center justify-between gap-2"
-                >
-                  <div className="flex items-center gap-2.5 min-w-0">
-                    <div className="w-10 h-10 rounded-2xl bg-white border-2 border-[#FBBFCA] text-[#E85D75] flex items-center justify-center font-bold shrink-0 shadow-2xs">
-                      <Layers className="w-5 h-5" />
-                    </div>
-                    <div className="min-w-0">
-                      <div className="font-extrabold text-xs sm:text-sm text-[#2C3E50] truncate">{pack.name}</div>
-                      <div className="text-[10px] text-[#718096] truncate">{pack.description}</div>
-                    </div>
-                  </div>
+              {shopPacks.map((pack) => {
+                const isConsumablePack = pack.packType !== 'standard';
+                const isConsumableFull = isConsumablePack && consumables.length >= 2;
+                const canAfford = money >= pack.cost;
+                const isDisabled = !canAfford || isConsumableFull;
 
-                  <button
-                    onClick={() => {
-                      if (money >= pack.cost) {
-                        soundEngine.playCoin();
-                        onBuyPack(pack);
-                      }
-                    }}
-                    disabled={money < pack.cost}
-                    className={`px-3 py-1.5 rounded-full font-black text-xs transition-all border-2 shrink-0 ${
-                      money >= pack.cost
-                        ? 'bg-[#E85D75] hover:bg-[#D93856] text-white border-white shadow-xs cursor-pointer'
-                        : 'bg-slate-200 text-slate-400 border-slate-300 cursor-not-allowed'
-                    }`}
+                return (
+                  <div
+                    key={pack.id}
+                    className="bg-[#FFF5F7]/90 p-3 rounded-2xl border-2 border-dashed border-[#F8A4B8] shadow-2xs flex items-center justify-between gap-2"
                   >
-                    🪙{pack.cost} 开启
-                  </button>
-                </div>
-              ))}
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className="w-10 h-10 rounded-2xl bg-white border-2 border-[#FBBFCA] text-[#E85D75] flex items-center justify-center font-bold shrink-0 shadow-2xs">
+                        <Layers className="w-5 h-5" />
+                      </div>
+                      <div className="min-w-0">
+                        <div className="font-extrabold text-xs sm:text-sm text-[#2C3E50] truncate">{pack.name}</div>
+                        <div className="text-[10px] text-[#718096] truncate">{pack.description}</div>
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={() => {
+                        if (!isDisabled) {
+                          soundEngine.playCoin();
+                          onBuyPack(pack);
+                        }
+                      }}
+                      disabled={isDisabled}
+                      className={`px-3 py-1.5 rounded-full font-black text-xs transition-all border-2 shrink-0 ${
+                        isConsumableFull
+                          ? 'bg-rose-100 text-rose-500 border-rose-300 cursor-not-allowed'
+                          : canAfford
+                          ? 'bg-[#E85D75] hover:bg-[#D93856] text-white border-white shadow-xs cursor-pointer'
+                          : 'bg-slate-200 text-slate-400 border-slate-300 cursor-not-allowed'
+                      }`}
+                    >
+                      {isConsumableFull ? '消耗牌槽满 (2/2)' : `🪙${pack.cost} 开启`}
+                    </button>
+                  </div>
+                );
+              })}
 
               {/* Vouchers */}
               {shopVouchers.map((v) => (

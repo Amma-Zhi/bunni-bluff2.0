@@ -46,14 +46,14 @@ export const HandScoringOverlay: React.FC<HandScoringOverlayProps> = ({
   const [animatedScore, setAnimatedScore] = useState<number>(handEval.baseChips * handEval.baseMult);
   const [confettiTriggered, setConfettiTriggered] = useState<boolean>(false);
 
-  // Smooth count-up interpolation effect
+  // Smooth count-up interpolation effect synchronized with step timing
   useEffect(() => {
     let startTimestamp: number | null = null;
     const startVal = animatedScore;
     const endVal = totalCalculated;
     if (startVal === endVal) return;
 
-    const duration = 300; // ms
+    const duration = 700; // ms for smooth rolling score count-up per step
     let animationFrameId: number;
 
     const stepFn = (timestamp: number) => {
@@ -149,7 +149,7 @@ export const HandScoringOverlay: React.FC<HandScoringOverlayProps> = ({
           setFloatingText({ text: `❌ 陪衬牌 (0筹码)`, color: 'text-slate-400 font-extrabold' });
         }
 
-        await new Promise(r => setTimeout(r, 450));
+        await new Promise(r => setTimeout(r, 800));
         if (isCancelled) return;
       }
 
@@ -256,7 +256,7 @@ export const HandScoringOverlay: React.FC<HandScoringOverlayProps> = ({
         setMult(currentMult);
         setFloatingText({ text: jokerDesc, color: 'text-[#D69E2E] font-extrabold' });
 
-        await new Promise(r => setTimeout(r, 500));
+        await new Promise(r => setTimeout(r, 850));
         if (isCancelled) return;
       }
 
@@ -349,7 +349,25 @@ export const HandScoringOverlay: React.FC<HandScoringOverlayProps> = ({
             {jokers.map((joker, idx) => (
               <motion.div
                 key={joker.id + idx}
-                animate={activeJokerIdx === idx ? { scale: 1.2, y: -4 } : { scale: 1, y: 0 }}
+                animate={
+                  activeJokerIdx === idx
+                    ? {
+                        scale: [1, 1.35, 1.2],
+                        y: [0, -18, -10],
+                        rotate: [0, -5, 5, 0],
+                        boxShadow: [
+                          '0 2px 8px rgba(0,0,0,0.1)',
+                          '0 14px 28px rgba(236, 201, 75, 0.85)',
+                          '0 8px 18px rgba(236, 201, 75, 0.7)',
+                        ],
+                      }
+                    : { scale: 1, y: 0, rotate: 0 }
+                }
+                transition={
+                  activeJokerIdx === idx
+                    ? { duration: 0.8, times: [0, 0.4, 1], ease: 'easeOut' }
+                    : { type: 'spring', stiffness: 300, damping: 20 }
+                }
                 className={`px-3 py-1.5 rounded-2xl border-2 font-black text-xs shadow-xs flex items-center gap-1 transition-colors ${
                   activeJokerIdx === idx
                     ? 'bg-[#FEFCBF] text-[#744210] border-[#ECC94B] ring-4 ring-[#FEF08A]'

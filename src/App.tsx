@@ -211,7 +211,7 @@ export default function App() {
     setAnte(save.ante);
     setRound(save.round);
     setBlindType(save.blindType);
-    setMoney(save.money ?? 10);
+    setMoney(save.money ?? 4);
     setHandsLeft(save.handsLeft);
     setDiscardsLeft(save.discardsLeft);
     setHandSize(save.handSize || 8);
@@ -237,7 +237,7 @@ export default function App() {
     const initialHand = freshDeck.slice(0, 8);
     const drawPile = freshDeck.slice(8);
 
-    let startMoney = 10; // Standard starting gold matching shop pricing
+    let startMoney = 4; // Adjusted starting money for economy balance
     let initialJokers: JokerData[] = [];
 
     if (customDailyDate) {
@@ -451,6 +451,9 @@ export default function App() {
   };
 
   const handleBuyPack = (pack: BoosterPackData) => {
+    if (money < pack.cost) return;
+    if (pack.packType !== 'standard' && consumables.length >= 2) return;
+
     setMoney(prev => prev - pack.cost);
     setActivePack(pack);
 
@@ -650,11 +653,13 @@ export default function App() {
           shopPacks={shopPacks}
           shopVouchers={shopVouchers}
           onBuyJoker={(joker) => {
+            if (jokers.length >= 5 || money < joker.cost) return;
             setMoney(prev => prev - joker.cost);
             setJokers(prev => [...prev, joker]);
             setShopJokers(prev => prev.filter(j => j.id !== joker.id));
           }}
           onBuyConsumable={(item) => {
+            if (consumables.length >= 2 || money < item.cost) return;
             setMoney(prev => prev - item.cost);
             setConsumables(prev => [...prev, item]);
             setShopConsumables(prev => prev.filter(c => c.id !== item.id));
