@@ -1,0 +1,8 @@
+{
+  "name": "Remix Remix 萌心小丑牌",
+  "description": "超萌粉白风格的小丑牌（Balatro）卡牌组构建游戏，支持卡牌组合与特殊计分、动态特效、音效、每日挑战、成就兑换及本地存档。",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
