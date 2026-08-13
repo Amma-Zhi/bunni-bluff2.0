@@ -1,5 +1,14 @@
-import { Achievement, GameSaveState, GameStats, RedeemItem } from '../types';
+import {
+  Achievement,
+  CardData,
+  GameSaveState,
+  GameStats,
+  LegacyGameSaveState,
+  RedeemItem,
+  StoredGameSaveState,
+} from '../types';
 import { INITIAL_ACHIEVEMENTS, INITIAL_REDEEM_ITEMS } from '../data/achievements';
+import { getTargetScoreForBlind, INITIAL_HAND_LEVELS } from './pokerLogic';
 
 const KEYS = {
   SAVE_RUN: 'cute_balatro_save_run',
@@ -66,10 +75,91 @@ export function loadGameRun(): GameSaveState | null {
   try {
     const raw = localStorage.getItem(KEYS.SAVE_RUN);
     if (!raw) return null;
-    return JSON.parse(raw);
+    const stored = JSON.parse(raw) as StoredGameSaveState;
+
+    if (stored.version === 2) {
+      return isValidVersion2Save(stored) ? stored : null;
+    }
+
+    return migrateLegacyRun(stored as LegacyGameSaveState);
   } catch {
     return null;
   }
+}
+
+function isCard(value: unknown): value is CardData {
+  if (!value || typeof value !== 'object') return false;
+  const card = value as Partial<CardData>;
+  return typeof card.id === 'string' && typeof card.suit === 'string' && typeof card.rank === 'string';
+}
+
+function uniqueIds(ids: unknown): string[] {
+  if (!Array.isArray(ids)) return [];
+  return [...new Set(ids.filter((id): id is string => typeof id === 'string'))];
+}
+
+function isValidVersion2Save(save: GameSaveState): boolean {
+  if (!save.runState || !save.roundState || !Array.isArray(save.runState.runDeck)) return false;
+  if (!save.runState.runDeck.every(isCard)) return false;
+
+  const entityIds = new Set(save.runState.runDeck.map(card => card.id));
+  if (entityIds.size !== save.runState.runDeck.length) return false;
+
+  const zones = [save.roundState.drawPile, save.roundState.hand, save.roundState.discardPile];
+  if (zones.some(zone => !Array.isArray(zone) || zone.some(id => typeof id !== 'string'))) return false;
+  const zoneIds = zones.flat();
+
+  return zoneIds.every(id => entityIds.has(id)) && new Set(zoneIds).size === zoneIds.length;
+}
+
+function migrateLegacyRun(save: LegacyGameSaveState): GameSaveState | null {
+  const legacyDrawPile = Array.isArray(save.deck) ? save.deck.filter(isCard) : [];
+  const legacyDiscardPile = Array.isArray(save.discardPile) ? save.discardPile.filter(isCard) : [];
+  const legacyHand = Array.isArray(save.handCards) ? save.handCards.filter(isCard) : [];
+  const entities = new Map<string, CardData>();
+
+  // The active hand wins if an old save duplicated a Card object across zones.
+  [...legacyDrawPile, ...legacyDiscardPile, ...legacyHand].forEach(card => entities.set(card.id, card));
+  if (entities.size === 0) return null;
+
+  const hand = uniqueIds(legacyHand.map(card => card.id));
+  const handSet = new Set(hand);
+  const drawPile = uniqueIds(legacyDrawPile.map(card => card.id)).filter(id => !handSet.has(id));
+  const occupied = new Set([...hand, ...drawPile]);
+  const discardPile = uniqueIds(legacyDiscardPile.map(card => card.id)).filter(id => !occupied.has(id));
+  const blindType = save.blindType || 'small';
+  const ante = Math.max(1, save.ante || 1);
+
+  return {
+    version: 2,
+    runState: {
+      ante,
+      money: save.money ?? 4,
+      runDeck: [...entities.values()],
+      jokers: save.jokers || [],
+      consumables: save.consumables || [],
+      vouchers: save.vouchers || [],
+      handLevels: save.handLevels || INITIAL_HAND_LEVELS,
+      persistentJokerState: {},
+      handSize: save.handSize || 8,
+      isDaily: save.isDaily || false,
+      dailyDate: save.dailyDate,
+      activeCardBack: save.activeCardBack || 'card_back_sakura',
+      activeDeckSkin: save.activeDeckSkin || 'deck_default',
+    },
+    roundState: {
+      blindType,
+      currentScore: save.currentScore || 0,
+      targetScore: getTargetScoreForBlind(ante, blindType),
+      drawPile,
+      hand,
+      discardPile,
+      handsLeft: save.handsLeft ?? 4,
+      discardsLeft: save.discardsLeft ?? 3,
+      bossRule: save.bossRule,
+      isCleared: save.isRoundCleared ?? false,
+    },
+  };
 }
 
 export function saveGameRun(state: GameSaveState | null): void {

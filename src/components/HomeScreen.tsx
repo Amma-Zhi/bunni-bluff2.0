@@ -6,7 +6,6 @@ import { GameStats } from '../types';
 
 interface HomeScreenProps {
   onStartBattle: () => void;
-  onOpenShop: () => void;
   onOpenDeckView: () => void;
   onOpenAchievements: () => void;
   onOpenSettings?: () => void;
@@ -22,7 +21,6 @@ interface HomeScreenProps {
 
 export const HomeScreen: React.FC<HomeScreenProps> = ({
   onStartBattle,
-  onOpenShop,
   onOpenDeckView,
   onOpenAchievements,
   onOpenSettings,
@@ -212,13 +210,15 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
 
               {/* 商店 */}
               <button
-                onClick={onOpenShop}
-                className="bg-white border-2 border-[#FFD1DC] hover:border-[#FF85A1] rounded-2xl p-2 flex flex-col items-center justify-center gap-1 shadow-xs transition-transform active:scale-95 cursor-pointer"
+                disabled
+                title="Run 商店只会在 Blind 通关后开放"
+                className="bg-slate-50 border-2 border-slate-200 rounded-2xl p-2 flex flex-col items-center justify-center gap-1 shadow-xs cursor-not-allowed opacity-60"
               >
                 <div className="w-9 h-9 rounded-xl bg-pink-50 text-rose-500 flex items-center justify-center">
                   <ShoppingBag className="w-4 h-4" />
                 </div>
-                <span className="text-[11px] font-bold text-slate-700">商店</span>
+                <span className="text-[11px] font-bold text-slate-500">Meta 商店</span>
+                <span className="text-[8px] font-bold text-slate-400">暂未开放</span>
               </button>
 
               {/* 任务 */}

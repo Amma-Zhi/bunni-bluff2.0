@@ -9,6 +9,8 @@ import {
   HandLevelMap,
   JokerData,
   PlanetCardData,
+  RoundState,
+  RunState,
   TarotCardData,
   VoucherData,
   GameSaveState,
@@ -17,8 +19,6 @@ import {
 import {
   createStandardDeck,
   evaluateHand,
-  getTargetScoreForBlind,
-  INITIAL_HAND_LEVELS,
 } from './utils/pokerLogic';
 import { JOKERS_LIST } from './data/jokers';
 import {
@@ -64,8 +64,18 @@ import { BossBlindNotice } from './components/BossBlindNotice';
 import { GameOverModal } from './components/GameOverModal';
 import { HelpModal } from './components/HelpModal';
 import { SettingsModal } from './components/SettingsModal';
+import { createRunState } from './game/state/runState';
+import { createRoundState } from './game/state/roundState';
+import { cardsForIds, removeCardsFromRound, updateRunDeckCards } from './game/deck/deckZones';
 
 import { Smartphone, RotateCw, Sparkles, Home, Swords, Settings } from 'lucide-react';
+
+const EMPTY_RUN_STATE: RunState = createRunState([]);
+const EMPTY_ROUND_STATE: RoundState = createRoundState([], {
+  ante: 1,
+  blindType: 'small',
+  handSize: 8,
+});
 
 export default function App() {
   // Navigation Screen: 'home' or 'battle'
@@ -75,39 +85,27 @@ export default function App() {
   // Screen Orientation mode: 'landscape' (default horizontal mobile) or 'portrait' (vertical mobile)
   const [orientation, setOrientation] = useState<'landscape' | 'portrait'>('landscape');
 
-  // Game Run State
-  const [ante, setAnte] = useState<number>(1);
-  const [round, setRound] = useState<number>(1);
-  const [blindType, setBlindType] = useState<BlindType>('small');
-  const [currentScore, setCurrentScore] = useState<number>(0);
-  const [targetScore, setTargetScore] = useState<number>(300);
-  const [isRoundCleared, setIsRoundCleared] = useState<boolean>(false);
-  const [money, setMoney] = useState<number>(10);
-  const [handsLeft, setHandsLeft] = useState<number>(4);
-  const [discardsLeft, setDiscardsLeft] = useState<number>(3);
-  const [handSize, setHandSize] = useState<number>(8);
-
-  const [deck, setDeck] = useState<CardData[]>([]);
-  const [handCards, setHandCards] = useState<CardData[]>([]);
-  const [discardPile, setDiscardPile] = useState<CardData[]>([]);
+  // Game state is split by lifetime: Run survives Blinds; Round is rebuilt per Blind.
+  const [runState, setRunState] = useState<RunState>(EMPTY_RUN_STATE);
+  const [roundState, setRoundState] = useState<RoundState>(EMPTY_ROUND_STATE);
+  const [isRunReady, setIsRunReady] = useState(false);
   const [selectedCardIds, setSelectedCardIds] = useState<string[]>([]);
 
-  const [jokers, setJokers] = useState<JokerData[]>([]);
-  const [consumables, setConsumables] = useState<(TarotCardData | PlanetCardData)[]>([]);
-  const [handLevels, setHandLevels] = useState<HandLevelMap>(INITIAL_HAND_LEVELS);
-  const [bossRule, setBossRule] = useState<BossRule | undefined>(undefined);
-  const [vouchers, setVouchers] = useState<string[]>([]);
-
-  const [isDaily, setIsDaily] = useState<boolean>(false);
-  const [dailyDate, setDailyDate] = useState<string>('');
+  const {
+    ante, money, runDeck, jokers, consumables, handLevels, vouchers, handSize,
+    isDaily, dailyDate, activeCardBack, activeDeckSkin,
+  } = runState;
+  const {
+    blindType, currentScore, targetScore, handsLeft, discardsLeft,
+    bossRule, isCleared: isRoundCleared,
+  } = roundState;
+  const handCards = cardsForIds(runDeck, roundState.hand);
 
   // Unlockables & Settings State
   const [crystals, setCrystals] = useState<number>(0);
   const [achievements, setAchievements] = useState(INITIAL_ACHIEVEMENTS);
   const [redeemItems, setRedeemItems] = useState(INITIAL_REDEEM_ITEMS);
   const [gameStats, setGameStats] = useState<GameStats>(defaultStats);
-  const [activeCardBack, setActiveCardBack] = useState<string>('card_back_sakura');
-  const [activeDeckSkin, setActiveDeckSkin] = useState<string>('deck_default');
 
   // UI Flow State
   const [screenState, setScreenState] = useState<'playing' | 'scoring' | 'shop' | 'boss_notice' | 'game_over'>('playing');
@@ -168,6 +166,12 @@ export default function App() {
     }
   }, []);
 
+  // Save the complete Run and current Round after every state transition.
+  useEffect(() => {
+    if (!isRunReady || screenState === 'game_over') return;
+    saveGameRun({ version: 2, runState, roundState });
+  }, [isRunReady, roundState, runState, screenState]);
+
   // Register audio unlock listener on first user interaction for iOS Safari / WebKit support
   useEffect(() => {
     const handleFirstInteraction = async () => {
@@ -209,76 +213,57 @@ export default function App() {
   };
 
   const loadRunFromSave = (save: GameSaveState) => {
-    setAnte(save.ante);
-    setRound(save.round);
-    setBlindType(save.blindType);
-    setMoney(save.money ?? 4);
-    setHandsLeft(save.handsLeft);
-    setDiscardsLeft(save.discardsLeft);
-    setHandSize(save.handSize || 8);
-    setCurrentScore(save.currentScore || 0);
-    setTargetScore(save.targetScore || getTargetScoreForBlind(save.ante, save.blindType, save.round));
-    setIsRoundCleared(save.isRoundCleared ?? false);
-    setJokers(save.jokers || []);
-    setConsumables(save.consumables || []);
-    setHandLevels(save.handLevels || INITIAL_HAND_LEVELS);
-    setDeck(save.deck || []);
-    setHandCards(save.handCards || []);
-    setDiscardPile(save.discardPile || []);
-    setBossRule(save.bossRule);
-    setIsDaily(save.isDaily || false);
-    setDailyDate(save.dailyDate || '');
-    setActiveCardBack(save.activeCardBack || 'card_back_sakura');
-    setActiveDeckSkin(save.activeDeckSkin || 'deck_default');
-    setVouchers(save.vouchers || []);
-    setScreenState('playing');
+    setRunState(save.runState);
+    setRoundState(save.roundState);
+    setSelectedCardIds([]);
+    setIsRunReady(true);
+
+    if (save.roundState.isCleared) {
+      populateShop(save.runState.vouchers);
+      setScreenState('shop');
+    } else {
+      setScreenState(save.roundState.bossRule ? 'boss_notice' : 'playing');
+    }
   };
 
-  const startNewRun = (customDailyDate?: string) => {
-    const freshDeck = createStandardDeck();
-    const initialHand = freshDeck.slice(0, 8);
-    const drawPile = freshDeck.slice(8);
-
+  const startNewRun = (customDailyDate?: string, resetCosmetics = false) => {
+    const freshRunDeck = createStandardDeck();
     let startMoney = 4; // Adjusted starting money for economy balance
-    let initialJokers: JokerData[] = [];
+    let startingHands = 4;
+    let startingDiscards = 3;
 
     if (customDailyDate) {
       const dailyConfig = getDailyChallengeConfig(new Date(customDailyDate));
       startMoney += dailyConfig.extraStartingMoney;
-      setIsDaily(true);
-      setDailyDate(customDailyDate);
-    } else {
-      setIsDaily(false);
-      setDailyDate('');
+      startingHands += dailyConfig.extraHands;
+      startingDiscards += dailyConfig.extraDiscards;
     }
 
-    setAnte(1);
-    setRound(1);
-    setBlindType('small');
-    setMoney(startMoney);
-    setHandsLeft(4);
-    setDiscardsLeft(3);
-    setHandSize(8);
-    setCurrentScore(0);
-    setTargetScore(getTargetScoreForBlind(1, 'small', 1));
-    setIsRoundCleared(false);
-    setJokers(initialJokers);
-    setConsumables([]);
-    setHandLevels(INITIAL_HAND_LEVELS);
-    setDeck(drawPile);
-    setHandCards(initialHand);
-    setDiscardPile([]);
+    const nextRunState = createRunState(freshRunDeck, startMoney, customDailyDate);
+    if (!resetCosmetics) {
+      nextRunState.activeCardBack = runState.activeCardBack;
+      nextRunState.activeDeckSkin = runState.activeDeckSkin;
+    }
+    const nextRoundState = createRoundState(freshRunDeck, {
+      ante: 1,
+      blindType: 'small',
+      handSize: nextRunState.handSize,
+      handsLeft: startingHands,
+      discardsLeft: startingDiscards,
+    });
+
+    setRunState(nextRunState);
+    setRoundState(nextRoundState);
     setSelectedCardIds([]);
-    setBossRule(undefined);
-    setVouchers([]);
     setLastEarningsBreakdown(null);
     setScreenState('playing');
+    setIsRunReady(true);
 
     saveGameRun(null);
   };
 
   // Generate random Shop Inventory
-  const populateShop = () => {
+  const populateShop = (purchasedVouchers = vouchers) => {
     const shuffledJokers = [...JOKERS_LIST].sort(() => Math.random() - 0.5);
     setShopJokers(shuffledJokers.slice(0, 2));
 
@@ -289,7 +274,7 @@ export default function App() {
 
     const unboughtVouchers = VOUCHERS.map(v => ({
       ...v,
-      bought: vouchers.includes(v.id),
+      bought: purchasedVouchers.includes(v.id),
     }));
     setShopVouchers(unboughtVouchers);
   };
@@ -311,18 +296,19 @@ export default function App() {
 
     soundEngine.playCardFlip();
 
-    const discarded = handCards.filter(c => selectedCardIds.includes(c.id));
-    const remainingHand = handCards.filter(c => !selectedCardIds.includes(c.id));
+    const selectedIds = new Set<string>(selectedCardIds);
+    const remainingHandIds = roundState.hand.filter(id => !selectedIds.has(id));
+    const neededCount = Math.min(roundState.drawPile.length, selectedCardIds.length);
+    const drawnIds = roundState.drawPile.slice(0, neededCount);
 
-    const neededCount = Math.min(deck.length, selectedCardIds.length);
-    const drawn = deck.slice(0, neededCount);
-    const newDeck = deck.slice(neededCount);
-
-    setDiscardPile(prev => [...prev, ...discarded]);
-    setHandCards([...remainingHand, ...drawn]);
-    setDeck(newDeck);
+    setRoundState(prev => ({
+      ...prev,
+      drawPile: prev.drawPile.slice(neededCount),
+      hand: [...remainingHandIds, ...drawnIds],
+      discardPile: [...prev.discardPile, ...prev.hand.filter(id => selectedIds.has(id))],
+      discardsLeft: prev.discardsLeft - 1,
+    }));
     setSelectedCardIds([]);
-    setDiscardsLeft(prev => prev - 1);
   };
 
   // Play Hand Action
@@ -339,31 +325,40 @@ export default function App() {
   // Called when scoring animation completes
   const handleScoringComplete = (scoredPoints: number) => {
     const newScore = currentScore + scoredPoints;
-    setCurrentScore(newScore);
-
-    const remainingHand = handCards.filter(c => !selectedCardIds.includes(c.id));
+    const selectedIds = new Set<string>(selectedCardIds);
+    const remainingHandIds = roundState.hand.filter(id => !selectedIds.has(id));
     const played = handCards.filter(c => selectedCardIds.includes(c.id));
 
-    const survivedPlayed = played.filter(c => {
+    const survivedPlayedIds = played.filter(c => {
       if (c.enhancement === 'glass') {
         return Math.random() > 0.25;
       }
       return true;
-    });
-
-    const newDiscardPile = [...discardPile, ...survivedPlayed];
-
-    const needed = Math.min(deck.length, handSize - remainingHand.length);
-    const drawn = deck.slice(0, needed);
-    const newDeck = deck.slice(needed);
-
-    setHandCards([...remainingHand, ...drawn]);
-    setDeck(newDeck);
-    setDiscardPile(newDiscardPile);
-    setSelectedCardIds([]);
-
+    }).map(card => card.id);
+    const survivedSet = new Set(survivedPlayedIds);
+    const brokenIds = new Set(played.filter(card => !survivedSet.has(card.id)).map(card => card.id));
+    const needed = Math.min(roundState.drawPile.length, handSize - remainingHandIds.length);
+    const drawnIds = roundState.drawPile.slice(0, needed);
     const newHandsLeft = handsLeft - 1;
-    setHandsLeft(newHandsLeft);
+    const didClear = newScore >= targetScore;
+
+    if (brokenIds.size > 0) {
+      setRunState(prev => ({
+        ...prev,
+        runDeck: prev.runDeck.filter(card => !brokenIds.has(card.id)),
+      }));
+    }
+
+    setRoundState(prev => ({
+      ...prev,
+      currentScore: newScore,
+      drawPile: prev.drawPile.slice(needed).filter(id => !brokenIds.has(id)),
+      hand: [...remainingHandIds, ...drawnIds].filter(id => !brokenIds.has(id)),
+      discardPile: [...prev.discardPile, ...survivedPlayedIds],
+      handsLeft: newHandsLeft,
+      isCleared: didClear,
+    }));
+    setSelectedCardIds([]);
 
     const stats = loadGameStats();
     if (scoredPoints > stats.highestHandScore) {
@@ -371,7 +366,7 @@ export default function App() {
       saveGameStats(stats);
     }
 
-    if (newScore >= targetScore) {
+    if (didClear) {
       const baseReward = blindType === 'boss' ? (8 + ante * 2) : blindType === 'big' ? (5 + ante) : (3 + ante);
       const interest = Math.min(5, Math.floor(money / 5));
       const handsReward = newHandsLeft;
@@ -384,8 +379,7 @@ export default function App() {
         total: totalEarned,
       });
 
-      setMoney(prev => prev + totalEarned);
-      setIsRoundCleared(true);
+      setRunState(prev => ({ ...prev, money: prev.money + totalEarned }));
       populateShop();
       setScreenState('shop');
       return;
@@ -410,50 +404,41 @@ export default function App() {
     }
 
     let nextBlind: BlindType = 'big';
-    let nextRound = round + 1;
     let nextAnte = ante;
+    let nextBossRule: BossRule | undefined;
 
     if (blindType === 'small') {
       nextBlind = 'big';
     } else if (blindType === 'big') {
       nextBlind = 'boss';
-      const rule = BOSS_RULES[Math.floor(Math.random() * BOSS_RULES.length)];
-      setBossRule(rule);
+      nextBossRule = BOSS_RULES[Math.floor(Math.random() * BOSS_RULES.length)];
     } else {
       nextBlind = 'small';
       nextAnte = ante + 1;
-      setBossRule(undefined);
 
       if (nextAnte > 8) {
         const earnedCrystals = 100;
         saveCrystals(crystals + earnedCrystals);
         setCrystals(prev => prev + earnedCrystals);
+        setRunState(prev => ({ ...prev, ante: nextAnte }));
         saveGameRun(null);
         setScreenState('game_over');
         return;
       }
     }
 
-    const fullDeck = createStandardDeck();
-    const initialHand = fullDeck.slice(0, handSize);
-    const drawPile = fullDeck.slice(handSize);
+    const nextRoundState = createRoundState(runDeck, {
+      ante: nextAnte,
+      blindType: nextBlind,
+      handSize,
+      bossRule: nextBossRule,
+    });
 
-    const nextTarget = getTargetScoreForBlind(nextAnte, nextBlind, nextRound);
-
-    setAnte(nextAnte);
-    setRound(nextRound);
-    setBlindType(nextBlind);
-    setTargetScore(nextTarget);
-    setCurrentScore(0);
-    setIsRoundCleared(false);
-    setHandsLeft(4);
-    setDiscardsLeft(3);
-    setDeck(drawPile);
-    setHandCards(initialHand);
-    setDiscardPile([]);
+    setRunState(prev => ({ ...prev, ante: nextAnte }));
+    setRoundState(nextRoundState);
     setSelectedCardIds([]);
 
-    if (nextBlind === 'boss' && bossRule) {
+    if (nextBossRule) {
       setScreenState('boss_notice');
     } else {
       setScreenState('playing');
@@ -464,7 +449,7 @@ export default function App() {
     if (money < pack.cost) return;
     if (pack.packType !== 'standard' && consumables.length >= 2) return;
 
-    setMoney(prev => prev - pack.cost);
+    setRunState(prev => ({ ...prev, money: prev.money - pack.cost }));
     setActivePack(pack);
 
     if (pack.packType === 'tarot') {
@@ -489,10 +474,13 @@ export default function App() {
 
   const handleSelectPackOption = (item: TarotCardData | PlanetCardData | CardData) => {
     if ('suit' in item) {
-      setDeck(prev => [...prev, item as CardData]);
+      setRunState(prev => ({ ...prev, runDeck: [...prev.runDeck, item as CardData] }));
     } else {
       if (consumables.length < 2) {
-        setConsumables(prev => [...prev, item as TarotCardData | PlanetCardData]);
+        setRunState(prev => ({
+          ...prev,
+          consumables: [...prev.consumables, item as TarotCardData | PlanetCardData],
+        }));
       }
     }
   };
@@ -501,18 +489,21 @@ export default function App() {
     // 1. Planet Cards (Level up hand)
     if ('handType' in item) {
       const planet = item as PlanetCardData;
-      setHandLevels(prev => {
-        const current = prev[planet.handType] || { level: 1, chips: 10, mult: 1 };
+      setRunState(prev => {
+        const current = prev.handLevels[planet.handType] || { level: 1, chips: 10, mult: 1 };
         return {
           ...prev,
-          [planet.handType]: {
-            level: current.level + 1,
-            chips: current.chips + planet.chipsBonus,
-            mult: current.mult + planet.multBonus,
+          handLevels: {
+            ...prev.handLevels,
+            [planet.handType]: {
+              level: current.level + 1,
+              chips: current.chips + planet.chipsBonus,
+              mult: current.mult + planet.multBonus,
+            },
           },
         };
       });
-      setConsumables(prev => prev.filter(c => c.id !== item.id));
+      setRunState(prev => ({ ...prev, consumables: prev.consumables.filter(c => c.id !== item.id) }));
       soundEngine.playFinalRewardChime();
       alert(`✨【${planet.handType}】手牌等级提升至 Lv.${(handLevels[planet.handType]?.level || 1) + 1}！基础筹码 +${planet.chipsBonus}，基础倍率 +${planet.multBonus}`);
       return;
@@ -522,15 +513,18 @@ export default function App() {
     const tarot = item as TarotCardData;
 
     if (tarot.effect === 'money') {
-      setMoney(prev => prev + 15);
-      setConsumables(prev => prev.filter(c => c.id !== item.id));
+      setRunState(prev => ({
+        ...prev,
+        money: prev.money + 15,
+        consumables: prev.consumables.filter(c => c.id !== item.id),
+      }));
       soundEngine.playCoin();
       alert('✨【聚宝盆】魔法发挥！获得 🪙15 金币！');
       return;
     }
 
     const selectedCards = handCards.filter(c => selectedCardIds.includes(c.id));
-    const selectedIds = new Set(selectedCardIds);
+    const selectedIds = new Set<string>(selectedCardIds);
 
     if (tarot.effect === 'suit_change') {
       if (selectedCards.length === 0 || selectedCards.length > 3) {
@@ -540,9 +534,11 @@ export default function App() {
       const targetSuit = tarot.targetSuit || 'hearts';
       const suitName = targetSuit === 'hearts' ? '红桃' : targetSuit === 'spades' ? '黑桃' : targetSuit === 'diamonds' ? '方块' : '梅花';
 
-      setHandCards(prev => prev.map(c => selectedIds.has(c.id) ? { ...c, suit: targetSuit } : c));
-      setDeck(prev => prev.map(c => selectedIds.has(c.id) ? { ...c, suit: targetSuit } : c));
-      setConsumables(prev => prev.filter(c => c.id !== item.id));
+      setRunState(prev => ({
+        ...prev,
+        runDeck: updateRunDeckCards(prev.runDeck, selectedIds, card => ({ ...card, suit: targetSuit })),
+        consumables: prev.consumables.filter(c => c.id !== item.id),
+      }));
       setSelectedCardIds([]);
       soundEngine.playCardScorePop(1);
       alert(`✨ 成功将选择的 ${selectedCards.length} 张卡牌转换为【${suitName}】！`);
@@ -562,9 +558,11 @@ export default function App() {
         enhancement === 'lucky' ? '幸运牌(概率加金与倍率)' :
         enhancement === 'mult' ? '倍率卡(+4倍率)' : '加分卡(+30筹码)';
 
-      setHandCards(prev => prev.map(c => selectedIds.has(c.id) ? { ...c, enhancement } : c));
-      setDeck(prev => prev.map(c => selectedIds.has(c.id) ? { ...c, enhancement } : c));
-      setConsumables(prev => prev.filter(c => c.id !== item.id));
+      setRunState(prev => ({
+        ...prev,
+        runDeck: updateRunDeckCards(prev.runDeck, selectedIds, card => ({ ...card, enhancement })),
+        consumables: prev.consumables.filter(c => c.id !== item.id),
+      }));
       setSelectedCardIds([]);
       soundEngine.playCardScorePop(2);
       alert(`✨ 成功将选择的 ${selectedCards.length} 张卡牌升级为【${enhancementName}】！`);
@@ -581,9 +579,12 @@ export default function App() {
         ...sourceCard,
         id: `copied_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
       };
-      setHandCards(prev => [...prev, copiedCard]);
-      setDeck(prev => [...prev, copiedCard]);
-      setConsumables(prev => prev.filter(c => c.id !== item.id));
+      setRunState(prev => ({
+        ...prev,
+        runDeck: [...prev.runDeck, copiedCard],
+        consumables: prev.consumables.filter(c => c.id !== item.id),
+      }));
+      setRoundState(prev => ({ ...prev, hand: [...prev.hand, copiedCard.id] }));
       setSelectedCardIds([]);
       soundEngine.playCardScorePop(3);
       alert(`✨ 成功复制了卡牌【${sourceCard.rank}】并放入手牌与牌组！`);
@@ -595,9 +596,12 @@ export default function App() {
         alert('✨【魔法消除】请先在下方手牌中点击勾选 1~2 张要精简消除的卡牌！');
         return;
       }
-      setHandCards(prev => prev.filter(c => !selectedIds.has(c.id)));
-      setDeck(prev => prev.filter(c => !selectedIds.has(c.id)));
-      setConsumables(prev => prev.filter(c => c.id !== item.id));
+      setRunState(prev => ({
+        ...prev,
+        runDeck: prev.runDeck.filter(c => !selectedIds.has(c.id)),
+        consumables: prev.consumables.filter(c => c.id !== item.id),
+      }));
+      setRoundState(prev => removeCardsFromRound(prev, selectedIds));
       setSelectedCardIds([]);
       soundEngine.playCardScorePop(0);
       alert(`✨ 成功从你的牌组中彻底销毁了 ${selectedCards.length} 张卡牌！`);
@@ -679,7 +683,7 @@ export default function App() {
               <HomeScreen
                 money={money}
                 streak={gameStats.totalWins}
-                deckCount={24}
+                deckCount={runDeck.length}
                 maxDeckCount={52}
                 activeTab={activeTab}
                 setActiveTab={(tab) => {
@@ -687,10 +691,6 @@ export default function App() {
                   if (tab === 'battle') setCurrentScreen('battle');
                 }}
                 onStartBattle={() => setCurrentScreen('battle')}
-                onOpenShop={() => {
-                  populateShop();
-                  setScreenState('shop');
-                }}
                 onOpenDeckView={() => setShowDeckView(true)}
                 onOpenAchievements={() => setShowAchievementsModal(true)}
                 onOpenSettings={() => setShowSettingsModal(true)}
@@ -710,9 +710,8 @@ export default function App() {
               <BattleScreen
                 currentScore={currentScore}
                 targetScore={targetScore}
-                round={round}
-                maxRound={8}
                 ante={ante}
+                blindType={blindType}
                 money={money}
                 handsLeft={handsLeft}
                 discardsLeft={discardsLeft}
@@ -720,35 +719,17 @@ export default function App() {
                 selectedCardIds={selectedCardIds}
                 jokers={jokers}
                 consumables={consumables}
-                deckCount={deck.length || 24}
+                deckCount={roundState.drawPile.length}
                 evaluatedHand={currentEvaluatedHand}
                 bossRule={bossRule || undefined}
                 onToggleSelectCard={handleToggleSelectCard}
                 onPlayHand={handlePlayHand}
                 onDiscard={handleDiscard}
-                onOpenShop={() => {
-                  populateShop();
-                  setScreenState('shop');
-                }}
                 onOpenDeckView={() => setShowDeckView(true)}
                 onOpenMenu={() => setShowHelpModal(true)}
                 onOpenSettings={() => setShowSettingsModal(true)}
                 onNavigateHome={() => setCurrentScreen('home')}
                 onUseConsumable={handleUseConsumable}
-                onSellConsumable={(itemId) => {
-                  const c = consumables.find(item => item.id === itemId);
-                  if (c) {
-                    setMoney(prev => prev + Math.max(1, Math.floor(c.cost / 2)));
-                    setConsumables(prev => prev.filter(item => item.id !== itemId));
-                  }
-                }}
-                onSellJoker={(jokerId) => {
-                  const j = jokers.find(item => item.id === jokerId);
-                  if (j) {
-                    setMoney(prev => prev + Math.max(1, Math.floor(j.cost / 2)));
-                    setJokers(prev => prev.filter(item => item.id !== jokerId));
-                  }
-                }}
                 activeCardBack={activeCardBack}
                 streak={3}
                 orientation={orientation}
@@ -788,42 +769,56 @@ export default function App() {
           shopVouchers={shopVouchers}
           onBuyJoker={(joker) => {
             if (jokers.length >= 5 || money < joker.cost) return;
-            setMoney(prev => prev - joker.cost);
-            setJokers(prev => [...prev, joker]);
+            setRunState(prev => ({
+              ...prev,
+              money: prev.money - joker.cost,
+              jokers: [...prev.jokers, joker],
+            }));
             setShopJokers(prev => prev.filter(j => j.id !== joker.id));
           }}
           onBuyConsumable={(item) => {
             if (consumables.length >= 2 || money < item.cost) return;
-            setMoney(prev => prev - item.cost);
-            setConsumables(prev => [...prev, item]);
+            setRunState(prev => ({
+              ...prev,
+              money: prev.money - item.cost,
+              consumables: [...prev.consumables, item],
+            }));
             setShopConsumables(prev => prev.filter(c => c.id !== item.id));
           }}
           onBuyPack={handleBuyPack}
           onBuyVoucher={(v) => {
-            setMoney(prev => prev - v.cost);
-            setVouchers(prev => [...prev, v.id]);
+            setRunState(prev => ({
+              ...prev,
+              money: prev.money - v.cost,
+              vouchers: [...prev.vouchers, v.id],
+            }));
           }}
           onSellJoker={(jokerId) => {
             const j = jokers.find(item => item.id === jokerId);
             if (j) {
-              setMoney(prev => prev + Math.max(1, Math.floor(j.cost / 2)));
-              setJokers(prev => prev.filter(item => item.id !== jokerId));
+              setRunState(prev => ({
+                ...prev,
+                money: prev.money + Math.max(1, Math.floor(j.cost / 2)),
+                jokers: prev.jokers.filter(item => item.id !== jokerId),
+              }));
             }
           }}
           onSellConsumable={(itemId) => {
             const c = consumables.find(item => item.id === itemId);
             if (c) {
-              setMoney(prev => prev + Math.max(1, Math.floor(c.cost / 2)));
-              setConsumables(prev => prev.filter(item => item.id !== itemId));
+              setRunState(prev => ({
+                ...prev,
+                money: prev.money + Math.max(1, Math.floor(c.cost / 2)),
+                consumables: prev.consumables.filter(item => item.id !== itemId),
+              }));
             }
           }}
           onUseConsumable={handleUseConsumable}
           onRerollShop={() => {
-            setMoney(prev => prev - 5);
+            setRunState(prev => ({ ...prev, money: prev.money - 5 }));
             populateShop();
           }}
           onNextRound={handleNextRoundFromShop}
-          onClose={() => setScreenState('playing')}
           handLevels={handLevels}
           lastEarningsBreakdown={lastEarningsBreakdown || undefined}
           isRoundCleared={isRoundCleared}
@@ -860,7 +855,7 @@ export default function App() {
       {/* 6. Deck View Modal */}
       {showDeckView && (
         <DeckViewModal
-          deck={deck}
+          deck={runDeck}
           handLevels={handLevels}
           cardBack={activeCardBack}
           onClose={() => setShowDeckView(false)}
@@ -913,11 +908,11 @@ export default function App() {
               saveRedeemItems(next);
               return next;
             });
-            if (item.type === 'card_back') setActiveCardBack(item.id);
-            if (item.type === 'deck_skin') setActiveDeckSkin(item.id);
+            if (item.type === 'card_back') setRunState(prev => ({ ...prev, activeCardBack: item.id }));
+            if (item.type === 'deck_skin') setRunState(prev => ({ ...prev, activeDeckSkin: item.id }));
           }}
-          onSelectCardBack={(id) => setActiveCardBack(id)}
-          onSelectDeckSkin={(id) => setActiveDeckSkin(id)}
+          onSelectCardBack={(id) => setRunState(prev => ({ ...prev, activeCardBack: id }))}
+          onSelectDeckSkin={(id) => setRunState(prev => ({ ...prev, activeDeckSkin: id }))}
           onClose={() => setShowAchievementsModal(false)}
         />
       )}
@@ -939,9 +934,7 @@ export default function App() {
             setGameStats(defaultStats);
             setAchievements(INITIAL_ACHIEVEMENTS);
             setRedeemItems(INITIAL_REDEEM_ITEMS);
-            setActiveCardBack('card_back_sakura');
-            setActiveDeckSkin('deck_default');
-            startNewRun();
+            startNewRun(undefined, true);
           }}
           onClose={() => setShowSettingsModal(false)}
         />
