@@ -44,6 +44,25 @@
     padding-right: max(0.5rem, env(safe-area-inset-right));
   }
 
+  /* Cute Custom Pink Lace Scrollbar */
+  .custom-pink-scrollbar::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  .custom-pink-scrollbar::-webkit-scrollbar-track {
+    background: #FFF0F3;
+    border-radius: 9999px;
+    border: 1px dashed #FBBFCA;
+  }
+  .custom-pink-scrollbar::-webkit-scrollbar-thumb {
+    background: #F8A4B8;
+    border-radius: 9999px;
+    border: 2px solid #FFF;
+  }
+  .custom-pink-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: #E85D75;
+  }
+
   /* Soft polka dot background from the image */
   .bg-polka-dots {
     background-color: #F8F4EE;

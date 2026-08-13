@@ -105,7 +105,7 @@ export const HandScoringOverlay: React.FC<HandScoringOverlayProps> = ({
       if (bossRule?.bannedHandTypes?.includes(handEval.handType)) {
         setChips(0);
         setMult(0);
-        setFloatingText({ text: `🚫 禁出牌型【${handEval.handType}】！本局出牌无效 0分`, color: 'text-rose-600 font-extrabold' });
+        setFloatingText({ text: `🚫 禁出牌型【${handEval.handType}】！本局出牌无效 0分`, color: 'text-[#D93856] font-extrabold' });
         await new Promise(r => setTimeout(r, 1200));
         if (!isCancelled) {
           setFinalScore(0);
@@ -143,7 +143,7 @@ export const HandScoringOverlay: React.FC<HandScoringOverlayProps> = ({
           setMult(currentMult);
 
           const deltaMsg = addMult > 0 ? `+${addChips} 筹码 / +${addMult} 倍率` : `+${addChips} 筹码`;
-          setFloatingText({ text: deltaMsg, color: 'text-sky-600 font-black' });
+          setFloatingText({ text: deltaMsg, color: 'text-[#3182CE] font-black' });
           soundEngine.playCardScorePop(i);
         } else {
           setFloatingText({ text: `❌ 陪衬牌 (0筹码)`, color: 'text-slate-400 font-extrabold' });
@@ -254,7 +254,7 @@ export const HandScoringOverlay: React.FC<HandScoringOverlayProps> = ({
 
         setChips(currentChips);
         setMult(currentMult);
-        setFloatingText({ text: jokerDesc, color: 'text-amber-600 font-extrabold' });
+        setFloatingText({ text: jokerDesc, color: 'text-[#D69E2E] font-extrabold' });
 
         await new Promise(r => setTimeout(r, 500));
         if (isCancelled) return;
@@ -281,16 +281,27 @@ export const HandScoringOverlay: React.FC<HandScoringOverlayProps> = ({
   }, []);
 
   return (
-    <div className="fixed inset-0 bg-pink-900/60 backdrop-blur-md z-50 flex flex-col items-center justify-center p-4 safe-area-p select-none">
+    <div className="fixed inset-0 bg-pink-950/60 backdrop-blur-md z-50 flex flex-col items-center justify-center p-2 sm:p-4 safe-area-p select-none overflow-y-auto">
+      {/* Outer Main Container */}
       <motion.div
-        initial={{ scale: 0.8, opacity: 0 }}
+        initial={{ scale: 0.92, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
-        className="w-full max-w-xl bg-gradient-to-b from-white via-pink-50 to-rose-100 rounded-3xl p-6 border-4 border-pink-300 shadow-2xl flex flex-col items-center gap-4 text-center relative max-h-[90vh] max-h-[90dvh] overflow-y-auto"
+        className="w-full max-w-xl bg-[#FFFDF8] rounded-[2.5rem] p-4 sm:p-6 border-4 border-[#FBBFCA] shadow-2xl flex flex-col items-center gap-3.5 text-center relative max-h-[96vh] max-h-[96dvh] overflow-y-auto my-auto"
+        style={{
+          boxShadow: '0 12px 36px rgba(244, 114, 182, 0.25), inset 0 0 0 3px #FFF0F3',
+        }}
       >
+        {/* Corner Hearts */}
+        <span className="absolute top-2.5 left-3 text-[#F7A8B8] text-xs font-serif">♡</span>
+        <span className="absolute top-2.5 right-3 text-[#F7A8B8] text-xs font-serif">♡</span>
+        <span className="absolute bottom-2.5 left-3 text-[#F7A8B8] text-xs font-serif">♡</span>
+        <span className="absolute bottom-2.5 right-3 text-[#F7A8B8] text-xs font-serif">♡</span>
+
         {/* Hand Title Badge */}
-        <div className="bg-gradient-to-r from-pink-500 via-rose-500 to-pink-600 text-white font-black text-xl sm:text-2xl px-6 py-2 rounded-full shadow-lg border-2 border-white flex items-center gap-2">
-          <Sparkles className="w-6 h-6 animate-spin" />
+        <div className="bg-gradient-to-r from-[#F8A4B8] via-[#E85D75] to-[#D93856] text-white font-black text-lg sm:text-2xl px-6 py-2 rounded-full shadow-md border-2 border-white flex items-center gap-2">
+          <Sparkles className="w-5 h-5 sm:w-6 sm:h-6 animate-spin" />
           <span>{handEval.handType}</span>
+          <span className="text-base">🎀</span>
         </div>
 
         {/* Floating Step Modifier Feedback Tag */}
@@ -302,7 +313,7 @@ export const HandScoringOverlay: React.FC<HandScoringOverlayProps> = ({
                 initial={{ opacity: 0, y: 10, scale: 0.8 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={{ opacity: 0, y: -10, scale: 0.8 }}
-                className={`px-3 py-1 rounded-full bg-white/90 border border-pink-200 shadow-xs font-black text-xs ${floatingText.color}`}
+                className={`px-3 py-1 rounded-full bg-white border-2 border-[#FBBFCA] shadow-xs font-black text-xs ${floatingText.color}`}
               >
                 {floatingText.text}
               </motion.div>
@@ -311,7 +322,7 @@ export const HandScoringOverlay: React.FC<HandScoringOverlayProps> = ({
         </div>
 
         {/* Played Cards Row */}
-        <div className="flex items-center justify-center gap-2 flex-wrap min-h-32">
+        <div className="flex items-center justify-center gap-2 flex-wrap min-h-28 bg-gingham-pink p-3 rounded-2xl border-2 border-dashed border-[#F8A4B8] w-full">
           {playedCards.map((card, idx) => {
             const isScoring = handEval.scoringCards.some(sc => sc.id === card.id) || jokers.some(j => j.id === 'joker_splash');
             return (
@@ -323,7 +334,7 @@ export const HandScoringOverlay: React.FC<HandScoringOverlayProps> = ({
                   size="md"
                 />
                 {!isScoring && (
-                  <div className="absolute top-1 right-1 bg-slate-800/80 text-white text-[9px] font-black px-1.5 py-0.5 rounded-md shadow-xs pointer-events-none">
+                  <div className="absolute top-1 right-1 bg-slate-700/80 text-white text-[9px] font-black px-1.5 py-0.5 rounded-md shadow-xs pointer-events-none">
                     陪衬
                   </div>
                 )}
@@ -338,11 +349,11 @@ export const HandScoringOverlay: React.FC<HandScoringOverlayProps> = ({
             {jokers.map((joker, idx) => (
               <motion.div
                 key={joker.id + idx}
-                animate={activeJokerIdx === idx ? { scale: 1.25, y: -6 } : { scale: 1, y: 0 }}
-                className={`px-3 py-1.5 rounded-xl border-2 font-black text-xs shadow-xs flex items-center gap-1 transition-colors ${
+                animate={activeJokerIdx === idx ? { scale: 1.2, y: -4 } : { scale: 1, y: 0 }}
+                className={`px-3 py-1.5 rounded-2xl border-2 font-black text-xs shadow-xs flex items-center gap-1 transition-colors ${
                   activeJokerIdx === idx
-                    ? 'bg-amber-300 text-amber-950 border-amber-500 ring-4 ring-amber-200'
-                    : 'bg-white text-slate-700 border-pink-200'
+                    ? 'bg-[#FEFCBF] text-[#744210] border-[#ECC94B] ring-4 ring-[#FEF08A]'
+                    : 'bg-white text-[#2C3E50] border-[#FBBFCA]'
                 }`}
               >
                 <span>🤡</span>
@@ -352,16 +363,18 @@ export const HandScoringOverlay: React.FC<HandScoringOverlayProps> = ({
           </div>
         )}
 
-        {/* Chips x Mult Live Formula Panel */}
-        <div className="w-full bg-white p-4 rounded-2xl border-2 border-pink-200 shadow-inner flex items-center justify-around gap-2 text-lg sm:text-2xl font-black relative overflow-hidden">
+        {/* Chips x Mult Formula Panel */}
+        <div className="w-full bg-[#FFF5F7] p-3.5 sm:p-4 rounded-3xl border-2 border-dashed border-[#F8A4B8] shadow-xs flex items-center justify-around gap-2 text-lg sm:text-2xl font-black relative overflow-hidden">
+          <span className="absolute top-1.5 right-2.5 text-[#F7A8B8] text-[10px]">♡</span>
+          
           {/* Chips */}
-          <div className="flex flex-col items-center text-sky-600">
-            <span className="text-xs text-sky-400 font-bold">筹码 (Chips)</span>
+          <div className="flex flex-col items-center text-[#3182CE]">
+            <span className="text-[11px] sm:text-xs text-[#3182CE] font-extrabold">筹码 (Chips)</span>
             <div className="flex items-center gap-1">
-              <Zap className="w-5 h-5 fill-sky-300 text-sky-600" />
+              <Zap className="w-4 h-4 sm:w-5 sm:h-5 fill-[#63B3ED] text-[#3182CE]" />
               <motion.span
                 key={chips}
-                initial={{ scale: 1.4, y: -4 }}
+                initial={{ scale: 1.3, y: -3 }}
                 animate={{ scale: 1, y: 0 }}
                 transition={{ type: 'spring', stiffness: 500, damping: 18 }}
               >
@@ -370,16 +383,16 @@ export const HandScoringOverlay: React.FC<HandScoringOverlayProps> = ({
             </div>
           </div>
 
-          <span className="text-pink-400 font-extrabold text-2xl">×</span>
+          <span className="text-[#F8A4B8] font-extrabold text-xl sm:text-2xl">×</span>
 
           {/* Mult */}
-          <div className="flex flex-col items-center text-rose-600">
-            <span className="text-xs text-rose-400 font-bold">倍率 (Mult)</span>
+          <div className="flex flex-col items-center text-[#D93856]">
+            <span className="text-[11px] sm:text-xs text-[#E85D75] font-extrabold">倍率 (Mult)</span>
             <div className="flex items-center gap-1">
-              <Sparkles className="w-5 h-5 fill-rose-300 text-rose-600" />
+              <Sparkles className="w-4 h-4 sm:w-5 sm:h-5 fill-[#F8A4B8] text-[#D93856]" />
               <motion.span
                 key={mult}
-                initial={{ scale: 1.4, y: -4 }}
+                initial={{ scale: 1.3, y: -3 }}
                 animate={{ scale: 1, y: 0 }}
                 transition={{ type: 'spring', stiffness: 500, damping: 18 }}
               >
@@ -388,17 +401,17 @@ export const HandScoringOverlay: React.FC<HandScoringOverlayProps> = ({
             </div>
           </div>
 
-          <span className="text-pink-400 font-extrabold text-2xl">=</span>
+          <span className="text-[#F8A4B8] font-extrabold text-xl sm:text-2xl">=</span>
 
-          {/* Calculated Hand Score */}
-          <div className="flex flex-col items-center text-pink-600">
-            <span className="text-xs text-pink-400 font-bold font-sans">牌型得分</span>
+          {/* Calculated Score */}
+          <div className="flex flex-col items-center text-[#D93856]">
+            <span className="text-[11px] sm:text-xs text-[#E85D75] font-extrabold">牌型得分</span>
             <motion.span
               key={totalCalculated}
-              initial={{ scale: 1.35, filter: 'brightness(1.2)' }}
+              initial={{ scale: 1.3, filter: 'brightness(1.2)' }}
               animate={{ scale: 1, filter: 'brightness(1)' }}
               transition={{ type: 'spring', stiffness: 400, damping: 15 }}
-              className="text-2xl sm:text-3xl font-black text-rose-600 tracking-tight"
+              className="text-xl sm:text-3xl font-black text-[#D93856] tracking-tight"
             >
               {animatedScore.toLocaleString()}
             </motion.span>
@@ -406,16 +419,16 @@ export const HandScoringOverlay: React.FC<HandScoringOverlayProps> = ({
         </div>
 
         {/* Target Score Progress Bar */}
-        <div className="w-full bg-white/95 p-3.5 rounded-2xl border-2 border-pink-200 shadow-xs flex flex-col gap-2 text-left">
+        <div className="w-full bg-[#FFFDF8] p-3 sm:p-4 rounded-3xl border-2 border-dashed border-[#FBBFCA] shadow-xs flex flex-col gap-2 text-left">
           <div className="flex items-center justify-between text-xs font-black">
-            <div className="flex items-center gap-1.5 text-slate-700">
-              <Trophy className="w-4 h-4 text-amber-500 fill-amber-300" />
+            <div className="flex items-center gap-1.5 text-[#2C3E50]">
+              <Trophy className="w-4 h-4 text-[#D69E2E] fill-[#FEFCBF]" />
               <span>目标分数进度</span>
               {accumulatedRoundScore >= targetScore && (
                 <motion.span
                   initial={{ scale: 0 }}
                   animate={{ scale: 1 }}
-                  className="text-[10px] bg-gradient-to-r from-emerald-500 to-teal-500 text-white px-2 py-0.5 rounded-full shadow-2xs font-extrabold flex items-center gap-0.5"
+                  className="text-[10px] bg-emerald-500 text-white px-2 py-0.5 rounded-full shadow-2xs font-extrabold flex items-center gap-0.5"
                 >
                   <Flame className="w-3 h-3 fill-amber-300" />
                   <span>目标达成！</span>
@@ -423,47 +436,47 @@ export const HandScoringOverlay: React.FC<HandScoringOverlayProps> = ({
               )}
             </div>
 
-            <div className="flex items-center gap-1 text-rose-600 font-black">
+            <div className="flex items-center gap-1 text-[#D93856] font-black">
               <span>{accumulatedRoundScore.toLocaleString()}</span>
-              <span className="text-slate-400 font-normal">/ {targetScore.toLocaleString()}</span>
-              <span className="bg-pink-100 text-pink-700 text-[11px] px-2 py-0.5 rounded-md ml-1 font-bold">
+              <span className="text-[#718096] font-normal">/ {targetScore.toLocaleString()}</span>
+              <span className="bg-[#FFF0F3] text-[#D93856] text-[11px] px-2 py-0.5 rounded-full border border-[#FBBFCA] ml-1 font-bold">
                 {targetProgressPercent.toFixed(1)}%
               </span>
             </div>
           </div>
 
-          <div className="w-full h-4 bg-pink-100/90 rounded-full overflow-hidden p-0.5 border border-pink-200 relative shadow-inner">
+          <div className="w-full h-3.5 bg-[#FFF0F3] rounded-full overflow-hidden p-0.5 border border-[#FBBFCA] relative shadow-inner">
             <motion.div
-              className={`h-full rounded-full relative shadow-md ${
+              className={`h-full rounded-full relative shadow-xs ${
                 accumulatedRoundScore >= targetScore
-                  ? 'bg-gradient-to-r from-emerald-400 via-teal-400 to-amber-400'
-                  : 'bg-gradient-to-r from-pink-400 via-rose-400 to-amber-400'
+                  ? 'bg-gradient-to-r from-emerald-400 via-teal-400 to-[#D69E2E]'
+                  : 'bg-gradient-to-r from-[#F8A4B8] via-[#E85D75] to-[#D93856]'
               }`}
               initial={{ width: `${Math.min(100, Math.max(0, (currentScore / Math.max(1, targetScore)) * 100))}%` }}
               animate={{ width: `${targetProgressPercent}%` }}
               transition={{ type: 'spring', stiffness: 120, damping: 20 }}
-            >
-              <div className="absolute inset-0 bg-gradient-to-b from-white/35 to-transparent rounded-full" />
-            </motion.div>
+            />
           </div>
         </div>
 
-        {/* Manual Continue Action Button at end of sequence */}
+        {/* Manual Continue Action Button */}
         {isFinishedScoring && (
-          <motion.button
-            initial={{ scale: 0.9, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            onClick={() => {
-              soundEngine.playPop();
-              onScoringComplete(finalScore);
-            }}
-            className="w-full py-3.5 px-6 rounded-2xl bg-gradient-to-r from-pink-500 via-rose-500 to-amber-500 hover:from-pink-600 hover:to-amber-600 text-white font-black text-base sm:text-lg shadow-xl border-2 border-white flex items-center justify-center gap-2 cursor-pointer active:scale-95 transition-all animate-pulse"
-          >
-            <span>{accumulatedRoundScore >= targetScore ? '🎉 关卡通关！点击【继续进入商店】' : '👉 点击【继续结算】'}</span>
-          </motion.button>
+          <div className="relative w-full pt-1">
+            <motion.button
+              initial={{ scale: 0.92, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              onClick={() => {
+                soundEngine.playPop();
+                onScoringComplete(finalScore);
+              }}
+              className="w-full py-3.5 rounded-full bg-gradient-to-r from-[#F8A4B8] via-[#E85D75] to-[#F8A4B8] hover:from-[#E85D75] hover:to-[#D93856] text-white font-black text-base shadow-lg transition-all border-2 border-white cursor-pointer active:scale-[0.98] tracking-widest flex items-center justify-center gap-2 relative animate-pulse"
+            >
+              <span>{accumulatedRoundScore >= targetScore ? '🎉 关卡通关！点击【进入商店】' : '👉 点击【继续结算】'}</span>
+            </motion.button>
+            <span className="absolute -bottom-2 left-1/2 -translate-x-1/2 text-sm pointer-events-none">🎀</span>
+          </div>
         )}
       </motion.div>
     </div>
   );
 };
-
