@@ -606,6 +606,8 @@ export default function App() {
           cardBack={activeCardBack}
           currentScore={currentScore}
           targetScore={targetScore}
+          discardsLeft={discardsLeft}
+          money={money}
         />
       )}
 

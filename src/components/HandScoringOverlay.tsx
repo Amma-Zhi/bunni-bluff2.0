@@ -15,6 +15,8 @@ interface HandScoringOverlayProps {
   cardBack: string;
   currentScore?: number;
   targetScore?: number;
+  discardsLeft?: number;
+  money?: number;
 }
 
 export const HandScoringOverlay: React.FC<HandScoringOverlayProps> = ({
@@ -26,11 +28,15 @@ export const HandScoringOverlay: React.FC<HandScoringOverlayProps> = ({
   cardBack,
   currentScore = 0,
   targetScore = 30000,
+  discardsLeft = 3,
+  money = 10,
 }) => {
   const [chips, setChips] = useState<number>(handEval.baseChips);
   const [mult, setMult] = useState<number>(handEval.baseMult);
   const [activeCardIdx, setActiveCardIdx] = useState<number>(-1);
   const [activeJokerIdx, setActiveJokerIdx] = useState<number>(-1);
+  const [isFinishedScoring, setIsFinishedScoring] = useState<boolean>(false);
+  const [finalScore, setFinalScore] = useState<number>(0);
 
   // Floating delta tag for active step feedback
   const [floatingText, setFloatingText] = useState<{ text: string; color: string } | null>(null);
@@ -102,12 +108,15 @@ export const HandScoringOverlay: React.FC<HandScoringOverlayProps> = ({
         setFloatingText({ text: `🚫 禁出牌型【${handEval.handType}】！本局出牌无效 0分`, color: 'text-rose-600 font-extrabold' });
         await new Promise(r => setTimeout(r, 1200));
         if (!isCancelled) {
-          onScoringComplete(0);
+          setFinalScore(0);
+          setIsFinishedScoring(true);
         }
         return;
       }
 
-      // 2. Score cards one by one
+      const hasSplashJoker = jokers.some(j => j.id === 'joker_splash');
+
+      // 2. Score cards one by one (Checking scoringCards)
       let currentChips = handEval.baseChips;
       let currentMult = handEval.baseMult;
 
@@ -116,24 +125,30 @@ export const HandScoringOverlay: React.FC<HandScoringOverlayProps> = ({
         setActiveCardIdx(i);
         soundEngine.playCardFlip();
 
-        let addChips = card.value || 10;
-        let addMult = 0;
+        const isScoringCard = handEval.scoringCards.some(sc => sc.id === card.id) || hasSplashJoker;
 
-        if (card.enhancement === 'bonus') addChips += 30;
-        if (card.enhancement === 'mult') addMult += 4;
-        if (card.edition === 'foil') addChips += 50;
-        if (card.edition === 'holographic') addMult += 10;
+        if (isScoringCard) {
+          let addChips = card.value || 10;
+          let addMult = 0;
 
-        currentChips += addChips;
-        currentMult += addMult;
+          if (card.enhancement === 'bonus') addChips += 30;
+          if (card.enhancement === 'mult') addMult += 4;
+          if (card.edition === 'foil') addChips += 50;
+          if (card.edition === 'holographic') addMult += 10;
 
-        setChips(currentChips);
-        setMult(currentMult);
+          currentChips += addChips;
+          currentMult += addMult;
 
-        const deltaMsg = addMult > 0 ? `+${addChips} 筹码 / +${addMult} 倍率` : `+${addChips} 筹码`;
-        setFloatingText({ text: deltaMsg, color: 'text-sky-600' });
+          setChips(currentChips);
+          setMult(currentMult);
 
-        soundEngine.playCardScorePop(i);
+          const deltaMsg = addMult > 0 ? `+${addChips} 筹码 / +${addMult} 倍率` : `+${addChips} 筹码`;
+          setFloatingText({ text: deltaMsg, color: 'text-sky-600 font-black' });
+          soundEngine.playCardScorePop(i);
+        } else {
+          setFloatingText({ text: `❌ 陪衬牌 (0筹码)`, color: 'text-slate-400 font-extrabold' });
+        }
+
         await new Promise(r => setTimeout(r, 450));
         if (isCancelled) return;
       }
@@ -166,18 +181,69 @@ export const HandScoringOverlay: React.FC<HandScoringOverlayProps> = ({
           const added = heartCount * 5;
           currentMult += added;
           jokerDesc += ` +${added} 倍率`;
-        } else if (joker.id === 'joker_donut' && (handEval.handType === '两对' || handEval.handType === '葫芦')) {
+        } else if (joker.id === 'joker_donut' && (handEval.handType === '两对' || handEval.handType === '葫芦' || handEval.handType === '同花葫芦')) {
           currentMult = Math.floor(currentMult * 1.5);
           jokerDesc += ' ×1.5 倍率';
-        } else if (joker.id === 'joker_piggy') {
+        } else if (joker.id === 'joker_bunny') {
+          currentChips += 20;
+          jokerDesc += ' +20 筹码';
+        } else if (joker.id === 'joker_wand') {
           currentMult += 10;
           jokerDesc += ' +10 倍率';
+        } else if (joker.id === 'joker_piggy') {
+          const piggyBonus = Math.min(30, Math.floor(money / 5) * 3);
+          currentMult += piggyBonus;
+          jokerDesc += ` +${piggyBonus} 倍率`;
+        } else if (joker.id === 'joker_rocking_horse' && (handEval.handType === '高牌' || handEval.handType === '对子')) {
+          currentChips += 25;
+          currentMult += 4;
+          jokerDesc += ' +25 筹码 / +4 倍率';
+        } else if (joker.id === 'joker_kitsune' && handEval.handType.includes('同花')) {
+          currentChips += 60;
+          currentMult += 6;
+          jokerDesc += ' +60 筹码 / +6 倍率';
+        } else if (joker.id === 'joker_icecream') {
+          currentChips += 100;
+          jokerDesc += ' +100 筹码';
+        } else if (joker.id === 'joker_creampuff') {
+          const faceCount = playedCards.filter(c => ['J', 'Q', 'K'].includes(c.rank)).length;
+          const added = faceCount * 6;
+          currentMult += added;
+          jokerDesc += ` +${added} 倍率`;
         } else if (joker.id === 'joker_sheep') {
-          currentChips += 30;
-          jokerDesc += ' +30 筹码';
+          currentChips += 36;
+          jokerDesc += ' +36 筹码';
+        } else if (joker.id === 'joker_paw') {
+          const hasGlass = playedCards.some(c => c.enhancement === 'glass');
+          if (hasGlass) {
+            currentMult = Math.floor(currentMult * 2.5);
+            jokerDesc += ' ×2.5 倍率 (猫爪庇护)';
+          }
         } else if (joker.id === 'joker_unicorn' && (handEval.handType === '顺子' || handEval.handType === '同花顺')) {
           currentMult = Math.floor(currentMult * 2.0);
           jokerDesc += ' ×2.0 倍率';
+        } else if (joker.id === 'joker_pearl' && discardsLeft === 0) {
+          currentMult = Math.floor(currentMult * 1.8);
+          jokerDesc += ' ×1.8 倍率';
+        } else if (joker.id === 'joker_giftbox') {
+          currentChips += 25;
+          jokerDesc += ' +25 筹码';
+        } else if (joker.id === 'joker_tiramisu') {
+          const added = discardsLeft * 20;
+          currentChips += added;
+          jokerDesc += ` +${added} 筹码`;
+        } else if (joker.id === 'joker_king_pudding' && playedCards.some(c => c.rank === 'K')) {
+          currentMult += 15;
+          jokerDesc += ' +15 倍率';
+        } else if (joker.id === 'joker_magic_ribbon' && (handEval.handType === '三条' || handEval.handType === '四条')) {
+          currentMult = Math.floor(currentMult * 1.75);
+          jokerDesc += ' ×1.75 倍率';
+        } else if (joker.id === 'joker_stars' && handEval.handType.includes('对')) {
+          currentChips += 30;
+          currentMult += 5;
+          jokerDesc += ' +30 筹码 / +5 倍率';
+        } else if (joker.id === 'joker_splash') {
+          jokerDesc += ' 全牌强制参与计分生效';
         } else if (joker.id === 'joker_legend_angel') {
           currentMult = Math.floor(currentMult * 2.2);
           jokerDesc += ' ×2.2 倍率';
@@ -188,7 +254,7 @@ export const HandScoringOverlay: React.FC<HandScoringOverlayProps> = ({
 
         setChips(currentChips);
         setMult(currentMult);
-        setFloatingText({ text: jokerDesc, color: 'text-amber-600' });
+        setFloatingText({ text: jokerDesc, color: 'text-amber-600 font-extrabold' });
 
         await new Promise(r => setTimeout(r, 500));
         if (isCancelled) return;
@@ -198,12 +264,12 @@ export const HandScoringOverlay: React.FC<HandScoringOverlayProps> = ({
       setFloatingText(null);
 
       // 4. Final tally calculation complete
-      const finalScore = currentChips * currentMult;
+      const calculatedScore = currentChips * currentMult;
       soundEngine.playFinalRewardChime();
 
-      await new Promise(r => setTimeout(r, 600));
       if (!isCancelled) {
-        onScoringComplete(finalScore);
+        setFinalScore(calculatedScore);
+        setIsFinishedScoring(true);
       }
     }
 
@@ -246,15 +312,24 @@ export const HandScoringOverlay: React.FC<HandScoringOverlayProps> = ({
 
         {/* Played Cards Row */}
         <div className="flex items-center justify-center gap-2 flex-wrap min-h-32">
-          {playedCards.map((card, idx) => (
-            <CardView
-              key={card.id}
-              card={card}
-              isScoring={activeCardIdx === idx}
-              cardBack={cardBack}
-              size="md"
-            />
-          ))}
+          {playedCards.map((card, idx) => {
+            const isScoring = handEval.scoringCards.some(sc => sc.id === card.id) || jokers.some(j => j.id === 'joker_splash');
+            return (
+              <div key={card.id} className="relative">
+                <CardView
+                  card={card}
+                  isScoring={activeCardIdx === idx}
+                  cardBack={cardBack}
+                  size="md"
+                />
+                {!isScoring && (
+                  <div className="absolute top-1 right-1 bg-slate-800/80 text-white text-[9px] font-black px-1.5 py-0.5 rounded-md shadow-xs pointer-events-none">
+                    陪衬
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
 
         {/* Triggered Jokers Row */}
@@ -277,7 +352,7 @@ export const HandScoringOverlay: React.FC<HandScoringOverlayProps> = ({
           </div>
         )}
 
-        {/* Chips x Mult Live Formula Panel with Number Jump Animation */}
+        {/* Chips x Mult Live Formula Panel */}
         <div className="w-full bg-white p-4 rounded-2xl border-2 border-pink-200 shadow-inner flex items-center justify-around gap-2 text-lg sm:text-2xl font-black relative overflow-hidden">
           {/* Chips */}
           <div className="flex flex-col items-center text-sky-600">
@@ -315,7 +390,7 @@ export const HandScoringOverlay: React.FC<HandScoringOverlayProps> = ({
 
           <span className="text-pink-400 font-extrabold text-2xl">=</span>
 
-          {/* Calculated Hand Score with Smooth Number Jump */}
+          {/* Calculated Hand Score */}
           <div className="flex flex-col items-center text-pink-600">
             <span className="text-xs text-pink-400 font-bold font-sans">牌型得分</span>
             <motion.span
@@ -330,7 +405,7 @@ export const HandScoringOverlay: React.FC<HandScoringOverlayProps> = ({
           </div>
         </div>
 
-        {/* Target Score Progress Bar with Smooth Growth Animation */}
+        {/* Target Score Progress Bar */}
         <div className="w-full bg-white/95 p-3.5 rounded-2xl border-2 border-pink-200 shadow-xs flex flex-col gap-2 text-left">
           <div className="flex items-center justify-between text-xs font-black">
             <div className="flex items-center gap-1.5 text-slate-700">
@@ -357,7 +432,6 @@ export const HandScoringOverlay: React.FC<HandScoringOverlayProps> = ({
             </div>
           </div>
 
-          {/* Smooth Spring Progress Bar Track */}
           <div className="w-full h-4 bg-pink-100/90 rounded-full overflow-hidden p-0.5 border border-pink-200 relative shadow-inner">
             <motion.div
               className={`h-full rounded-full relative shadow-md ${
@@ -369,11 +443,25 @@ export const HandScoringOverlay: React.FC<HandScoringOverlayProps> = ({
               animate={{ width: `${targetProgressPercent}%` }}
               transition={{ type: 'spring', stiffness: 120, damping: 20 }}
             >
-              {/* Glossy sheen overlay */}
               <div className="absolute inset-0 bg-gradient-to-b from-white/35 to-transparent rounded-full" />
             </motion.div>
           </div>
         </div>
+
+        {/* Manual Continue Action Button at end of sequence */}
+        {isFinishedScoring && (
+          <motion.button
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            onClick={() => {
+              soundEngine.playPop();
+              onScoringComplete(finalScore);
+            }}
+            className="w-full py-3.5 px-6 rounded-2xl bg-gradient-to-r from-pink-500 via-rose-500 to-amber-500 hover:from-pink-600 hover:to-amber-600 text-white font-black text-base sm:text-lg shadow-xl border-2 border-white flex items-center justify-center gap-2 cursor-pointer active:scale-95 transition-all animate-pulse"
+          >
+            <span>{accumulatedRoundScore >= targetScore ? '🎉 关卡通关！点击【继续进入商店】' : '👉 点击【继续结算】'}</span>
+          </motion.button>
+        )}
       </motion.div>
     </div>
   );

@@ -257,9 +257,14 @@ export function getSuitLabel(suit: Suit): string {
 
 // Calculate target score required for Ante & Blind Type
 export function getTargetScoreForBlind(ante: number, blindType: BlindType): number {
-  // Balatro formula approximation with smooth scaling
-  const baseAnteScores = [100, 300, 800, 2000, 5000, 11000, 20000, 35000, 60000, 100000];
-  const anteBase = baseAnteScores[Math.min(ante - 1, baseAnteScores.length - 1)] || (ante * 20000);
+  // Ramped difficulty formula: Ante 1-2 friendly, Ante 3+ grows rapidly
+  const baseAnteScores = [300, 800, 2800, 8000, 22000, 55000, 120000, 250000];
+  let anteBase = 300;
+  if (ante <= baseAnteScores.length) {
+    anteBase = baseAnteScores[ante - 1];
+  } else {
+    anteBase = 250000 * Math.pow(2, ante - 8);
+  }
 
   if (blindType === 'small') return Math.floor(anteBase * 1.0);
   if (blindType === 'big') return Math.floor(anteBase * 1.5);

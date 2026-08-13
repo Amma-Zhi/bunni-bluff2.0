@@ -192,6 +192,16 @@ export const JOKERS_LIST: JokerData[] = [
     effectType: 'chips',
   },
   {
+    id: 'joker_splash',
+    name: '彩虹洒花',
+    description: '【全员参与】打出的所有卡牌（无论是否构成牌型）均强制参与计分！',
+    rarity: '罕见',
+    cost: 7,
+    icon: 'Sparkles',
+    color: 'from-fuchsia-300 via-pink-300 to-sky-300',
+    effectType: 'utility',
+  },
+  {
     id: 'joker_legend_angel',
     name: '粉甜天使',
     description: '【传说级】每次结算时，总倍率额外 ×2.2',

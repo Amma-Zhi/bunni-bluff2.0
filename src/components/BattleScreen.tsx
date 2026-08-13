@@ -278,39 +278,51 @@ export const BattleScreen: React.FC<BattleScreenProps> = ({
 
           {/* Right Column: Action Buttons */}
           <div className="w-[140px] flex flex-col justify-center gap-2 shrink-0">
-            <button
-              onClick={onPlayHand}
-              disabled={handsLeft <= 0 || selectedCardIds.length === 0}
-              className={`py-3 rounded-2xl font-black text-xs flex items-center justify-center gap-1 btn-pink-pill transition-all cursor-pointer ${
-                handsLeft <= 0 || selectedCardIds.length === 0 ? 'opacity-60 cursor-not-allowed' : ''
-              }`}
-            >
-              <span>🎀 出牌 ({handsLeft})</span>
-            </button>
+            {currentScore >= targetScore ? (
+              <button
+                onClick={onOpenShop}
+                className="py-4 px-2 rounded-2xl font-black text-xs flex flex-col items-center justify-center gap-1.5 bg-gradient-to-r from-emerald-500 via-teal-500 to-emerald-600 text-white shadow-xl animate-pulse cursor-pointer border-2 border-white"
+              >
+                <span className="text-sm">🎉 关卡已通关</span>
+                <span className="text-[10px] bg-white/20 px-2 py-0.5 rounded-full">进入下一关 ➔</span>
+              </button>
+            ) : (
+              <>
+                <button
+                  onClick={onPlayHand}
+                  disabled={handsLeft <= 0 || selectedCardIds.length === 0}
+                  className={`py-3 rounded-2xl font-black text-xs flex items-center justify-center gap-1 btn-pink-pill transition-all cursor-pointer ${
+                    handsLeft <= 0 || selectedCardIds.length === 0 ? 'opacity-60 cursor-not-allowed' : ''
+                  }`}
+                >
+                  <span>🎀 出牌 ({handsLeft})</span>
+                </button>
 
-            <button
-              onClick={onDiscard}
-              disabled={discardsLeft <= 0 || selectedCardIds.length === 0 || bossRule?.disableDiscards}
-              className={`py-3 rounded-2xl font-black text-xs flex items-center justify-center gap-1 btn-blue-pill transition-all cursor-pointer ${
-                discardsLeft <= 0 || selectedCardIds.length === 0 || bossRule?.disableDiscards ? 'opacity-60 cursor-not-allowed' : ''
-              }`}
-            >
-              <span>弃牌 ({bossRule?.disableDiscards ? 0 : discardsLeft})</span>
-            </button>
+                <button
+                  onClick={onDiscard}
+                  disabled={discardsLeft <= 0 || selectedCardIds.length === 0 || bossRule?.disableDiscards}
+                  className={`py-3 rounded-2xl font-black text-xs flex items-center justify-center gap-1 btn-blue-pill transition-all cursor-pointer ${
+                    discardsLeft <= 0 || selectedCardIds.length === 0 || bossRule?.disableDiscards ? 'opacity-60 cursor-not-allowed' : ''
+                  }`}
+                >
+                  <span>弃牌 ({bossRule?.disableDiscards ? 0 : discardsLeft})</span>
+                </button>
 
-            <button
-              onClick={onOpenShop}
-              className="py-3 rounded-2xl font-black text-xs flex items-center justify-center gap-1 btn-pink-pill transition-all cursor-pointer"
-            >
-              <span>🎀 商店</span>
-            </button>
+                <button
+                  onClick={onOpenShop}
+                  className="py-3 rounded-2xl font-black text-xs flex items-center justify-center gap-1 btn-pink-pill transition-all cursor-pointer"
+                >
+                  <span>🎀 商店</span>
+                </button>
 
-            <button
-              onClick={onOpenShop}
-              className="py-3 rounded-2xl font-black text-xs flex items-center justify-center gap-1 btn-blue-pill transition-all cursor-pointer"
-            >
-              <span>刷新 🪙10</span>
-            </button>
+                <button
+                  onClick={onOpenShop}
+                  className="py-3 rounded-2xl font-black text-xs flex items-center justify-center gap-1 btn-blue-pill transition-all cursor-pointer"
+                >
+                  <span>刷新 🪙10</span>
+                </button>
+              </>
+            )}
           </div>
         </div>
       ) : (
@@ -489,41 +501,50 @@ export const BattleScreen: React.FC<BattleScreenProps> = ({
 
           {/* Bottom Actions Bar */}
           <div className="p-3 pt-1 flex flex-col gap-2 shrink-0">
-            <div className="grid grid-cols-4 gap-2">
-              <button
-                onClick={onPlayHand}
-                disabled={handsLeft <= 0 || selectedCardIds.length === 0}
-                className={`py-2.5 rounded-full font-black text-xs flex items-center justify-center gap-1 btn-pink-pill transition-all cursor-pointer ${
-                  handsLeft <= 0 || selectedCardIds.length === 0 ? 'opacity-60 cursor-not-allowed' : ''
-                }`}
-              >
-                <span>🎀 出牌 ({handsLeft})</span>
-              </button>
-
-              <button
-                onClick={onDiscard}
-                disabled={discardsLeft <= 0 || selectedCardIds.length === 0 || bossRule?.disableDiscards}
-                className={`py-2.5 rounded-full font-black text-xs flex items-center justify-center gap-1 btn-blue-pill transition-all cursor-pointer ${
-                  discardsLeft <= 0 || selectedCardIds.length === 0 || bossRule?.disableDiscards ? 'opacity-60 cursor-not-allowed' : ''
-                }`}
-              >
-                <span>弃牌 ({bossRule?.disableDiscards ? 0 : discardsLeft})</span>
-              </button>
-
+            {currentScore >= targetScore ? (
               <button
                 onClick={onOpenShop}
-                className="py-2.5 rounded-full font-black text-xs flex items-center justify-center gap-1 btn-pink-pill transition-all cursor-pointer"
+                className="py-3 px-4 rounded-2xl font-black text-xs sm:text-sm flex items-center justify-center gap-2 bg-gradient-to-r from-emerald-500 via-teal-500 to-emerald-600 text-white shadow-xl animate-pulse cursor-pointer border-2 border-white"
               >
-                <span>🎀 商店</span>
+                <span>🎉 关卡盲注已通关！点击【进入商店 / 下一关】➔</span>
               </button>
+            ) : (
+              <div className="grid grid-cols-4 gap-2">
+                <button
+                  onClick={onPlayHand}
+                  disabled={handsLeft <= 0 || selectedCardIds.length === 0}
+                  className={`py-2.5 rounded-full font-black text-xs flex items-center justify-center gap-1 btn-pink-pill transition-all cursor-pointer ${
+                    handsLeft <= 0 || selectedCardIds.length === 0 ? 'opacity-60 cursor-not-allowed' : ''
+                  }`}
+                >
+                  <span>🎀 出牌 ({handsLeft})</span>
+                </button>
 
-              <button
-                onClick={onOpenShop}
-                className="py-2.5 rounded-full font-black text-xs flex items-center justify-center gap-1 btn-blue-pill transition-all cursor-pointer"
-              >
-                <span>刷新 🪙10</span>
-              </button>
-            </div>
+                <button
+                  onClick={onDiscard}
+                  disabled={discardsLeft <= 0 || selectedCardIds.length === 0 || bossRule?.disableDiscards}
+                  className={`py-2.5 rounded-full font-black text-xs flex items-center justify-center gap-1 btn-blue-pill transition-all cursor-pointer ${
+                    discardsLeft <= 0 || selectedCardIds.length === 0 || bossRule?.disableDiscards ? 'opacity-60 cursor-not-allowed' : ''
+                  }`}
+                >
+                  <span>弃牌 ({bossRule?.disableDiscards ? 0 : discardsLeft})</span>
+                </button>
+
+                <button
+                  onClick={onOpenShop}
+                  className="py-2.5 rounded-full font-black text-xs flex items-center justify-center gap-1 btn-pink-pill transition-all cursor-pointer"
+                >
+                  <span>🎀 商店</span>
+                </button>
+
+                <button
+                  onClick={onOpenShop}
+                  className="py-2.5 rounded-full font-black text-xs flex items-center justify-center gap-1 btn-blue-pill transition-all cursor-pointer"
+                >
+                  <span>刷新 🪙10</span>
+                </button>
+              </div>
+            )}
 
             <div className="bg-white rounded-2xl p-2 border border-[#C6E2FF] flex items-center justify-between text-slate-700 shadow-2xs mt-1">
               <div className="flex items-center gap-1">
