@@ -1,0 +1,76 @@
+name: Build iOS IPA (AltStore)
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'assets/**'
+      - 'ios/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'capacitor.config.ts'
+      - 'vite.config.ts'
+      - '.github/workflows/build-ios-ipa.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  build-unsigned-ipa:
+    name: Build unsigned IPA for AltStore
+    runs-on: macos-15
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v6
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build web app and sync iOS
+        run: npm run ios:sync
+
+      - name: Generate iPhone icon and splash screen
+        run: npm run ios:assets -- --iconBackgroundColor '#FF7AA2' --splashBackgroundColor '#FFF4F7'
+
+      - name: Build iPhone app without signing
+        run: |
+          xcodebuild \
+            -project ios/App/App.xcodeproj \
+            -scheme App \
+            -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath build/ios \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY=''
+
+      - name: Package unsigned IPA
+        shell: bash
+        run: |
+          APP_PATH="build/ios/Build/Products/Release-iphoneos/App.app"
+          test -d "$APP_PATH"
+          mkdir -p build/package/Payload
+          cp -R "$APP_PATH" build/package/Payload/
+          cd build/package
+          /usr/bin/zip -qry ../BunniBluff-unsigned.ipa Payload
+
+      - name: Upload IPA
+        uses: actions/upload-artifact@v7
+        with:
+          name: BunniBluff-iOS-AltStore
+          path: build/BunniBluff-unsigned.ipa
+          if-no-files-found: error
+          retention-days: 14
+
