@@ -1,9 +1,9 @@
 import React from 'react';
 import { motion } from 'motion/react';
-import { BossRule, CardData, HandEvaluation, JokerData } from '../types';
+import { BossRule, CardData, HandEvaluation, JokerData, PlanetCardData, TarotCardData } from '../types';
 import { CardView } from './CardView';
 import { JokerCard } from './JokerCard';
-import { Plus, Menu, Newspaper, Home, Settings, Lock, ShieldAlert } from 'lucide-react';
+import { Plus, Menu, Newspaper, Home, Settings, Lock, ShieldAlert, Wand2, Sparkles } from 'lucide-react';
 
 interface BattleScreenProps {
   currentScore: number;
@@ -17,6 +17,7 @@ interface BattleScreenProps {
   handCards: CardData[];
   selectedCardIds: string[];
   jokers: JokerData[];
+  consumables?: (TarotCardData | PlanetCardData)[];
   deckCount: number;
   evaluatedHand?: HandEvaluation;
   bossRule?: BossRule;
@@ -28,6 +29,9 @@ interface BattleScreenProps {
   onOpenMenu: () => void;
   onOpenSettings?: () => void;
   onNavigateHome?: () => void;
+  onUseConsumable?: (item: TarotCardData | PlanetCardData) => void;
+  onSellConsumable?: (itemId: string) => void;
+  onSellJoker?: (jokerId: string) => void;
   activeCardBack?: string;
   streak?: number;
   orientation?: 'portrait' | 'landscape';
@@ -45,6 +49,7 @@ export const BattleScreen: React.FC<BattleScreenProps> = ({
   handCards,
   selectedCardIds,
   jokers,
+  consumables = [],
   deckCount,
   evaluatedHand,
   bossRule,
@@ -56,6 +61,9 @@ export const BattleScreen: React.FC<BattleScreenProps> = ({
   onOpenMenu,
   onOpenSettings,
   onNavigateHome,
+  onUseConsumable,
+  onSellConsumable,
+  onSellJoker,
   activeCardBack = 'card_back_sakura',
   streak = 3,
   orientation = 'landscape',
@@ -180,49 +188,73 @@ export const BattleScreen: React.FC<BattleScreenProps> = ({
 
           {/* Center Column: Card Stage (Jokers, Played Hand, Hand Cards) */}
           <div className="flex-1 flex flex-col justify-between py-1 gap-2 overflow-hidden">
-            {/* Top: Special Jokers Ribbon */}
-            <div className="flex flex-col items-center gap-1 shrink-0">
-              <div className="bg-[#A8D1E7] text-white font-black text-[10px] px-3 py-0.5 rounded-full shadow-2xs border border-white flex items-center gap-1">
-                <span>✦ 本回合特殊牌 ✦</span>
-                {bossRule?.disabledJokerIndices && bossRule.disabledJokerIndices.length > 0 && (
-                  <span className="text-[9px] bg-rose-500 text-white px-1.5 rounded-full font-bold">小丑部分封印</span>
-                )}
+            {/* Top: Special Cards Row (Jokers & Consumables) */}
+            <div className="flex items-start justify-center gap-2 shrink-0 w-full overflow-x-auto py-0.5">
+              {/* Jokers Area */}
+              <div className="flex flex-col items-center gap-1 bg-white/60 backdrop-blur-2xs p-1.5 rounded-2xl border border-[#A2C4E5] shadow-2xs">
+                <div className="bg-[#A8D1E7] text-white font-black text-[9px] px-2.5 py-0.5 rounded-full flex items-center gap-1 shadow-2xs border border-white">
+                  <span>🐼 小丑牌 ({jokers.length}/5)</span>
+                  {bossRule?.disabledJokerIndices && bossRule.disabledJokerIndices.length > 0 && (
+                    <span className="text-[8px] bg-rose-500 text-white px-1 rounded-full font-bold">封印中</span>
+                  )}
+                </div>
+                <div className="flex items-center gap-1.5 min-h-[105px]">
+                  {jokers.length > 0 ? (
+                    jokers.map((joker, idx) => {
+                      const isDisabledJoker = bossRule?.disabledJokerIndices?.includes(idx);
+                      return (
+                        <div key={joker.id + idx} className="relative">
+                          <JokerCard
+                            item={joker}
+                            type="joker"
+                            onSell={onSellJoker ? () => onSellJoker(joker.id) : undefined}
+                          />
+                          {isDisabledJoker && (
+                            <div className="absolute inset-0 bg-slate-900/60 rounded-2xl backdrop-blur-2xs flex flex-col items-center justify-center text-white z-10 border-2 border-rose-400">
+                              <Lock className="w-4 h-4 text-rose-300 animate-pulse" />
+                              <span className="text-[8px] font-black text-rose-200 mt-0.5">已封印</span>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })
+                  ) : (
+                    <div className="w-20 h-28 border-2 border-dashed border-[#FFB6C1] rounded-2xl bg-white/60 flex flex-col items-center justify-center text-[#FF6392] text-[10px] font-bold">
+                      <span className="text-lg">🤡</span>
+                      <span>空小丑槽</span>
+                    </div>
+                  )}
+                </div>
               </div>
-              <div className="flex items-center justify-center gap-2">
-                {jokers.length > 0 ? (
-                  jokers.slice(0, 3).map((joker, idx) => {
-                    const isDisabledJoker = bossRule?.disabledJokerIndices?.includes(idx);
-                    return (
-                      <div key={joker.id + idx} className="relative">
-                        <JokerCard item={joker} type="joker" />
-                        {isDisabledJoker && (
-                          <div className="absolute inset-0 bg-slate-900/60 rounded-2xl backdrop-blur-2xs flex flex-col items-center justify-center text-white z-10 border-2 border-rose-400">
-                            <Lock className="w-5 h-5 text-rose-300 animate-pulse" />
-                            <span className="text-[9px] font-black text-rose-200 mt-0.5">已封印</span>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })
-                ) : (
-                  <>
-                    <div className="w-16 h-22 bg-white border-2 border-[#FFB6C1] rounded-xl p-1 flex flex-col items-center justify-between shadow-xs">
-                      <span className="text-[7px] font-black text-[#FF6392]">JOKER</span>
-                      <span className="text-base">🤡</span>
-                      <span className="text-[7px] font-black text-[#FF6392]">JOKER</span>
+
+              {/* Consumables Area */}
+              <div className="flex flex-col items-center gap-1 bg-white/60 backdrop-blur-2xs p-1.5 rounded-2xl border border-[#B794F4]/50 shadow-2xs">
+                <div className="bg-purple-500 text-white font-black text-[9px] px-2.5 py-0.5 rounded-full flex items-center gap-1 shadow-2xs border border-white">
+                  <Wand2 className="w-3 h-3" />
+                  <span>🔮 消耗牌 ({consumables.length}/2)</span>
+                </div>
+                <div className="flex items-center gap-1.5 min-h-[105px]">
+                  {consumables.map((item, idx) => (
+                    <div key={item.id + idx} className="relative">
+                      <JokerCard
+                        item={item}
+                        type={'targetSuit' in item ? 'tarot' : 'planet'}
+                        onClick={onUseConsumable ? () => onUseConsumable(item) : undefined}
+                        onSell={onSellConsumable ? () => onSellConsumable(item.id) : undefined}
+                      />
                     </div>
-                    <div className="w-16 h-22 bg-white border-2 border-[#FFB6C1] rounded-xl p-1 flex flex-col items-center justify-between shadow-xs">
-                      <span className="text-[7px] font-black text-[#FF6392]">JOKER</span>
-                      <span className="text-base">🎪</span>
-                      <span className="text-[7px] font-black text-[#FF6392]">JOKER</span>
+                  ))}
+                  {Array.from({ length: Math.max(0, 2 - consumables.length) }).map((_, i) => (
+                    <div
+                      key={i}
+                      className="w-20 h-28 border-2 border-dashed border-purple-300/80 rounded-2xl bg-purple-50/40 flex flex-col items-center justify-center text-purple-500 text-[10px] font-bold gap-0.5 text-center px-1"
+                    >
+                      <Sparkles className="w-4 h-4 text-purple-400" />
+                      <span>空消耗槽</span>
+                      <span className="text-[8px] text-purple-400 font-normal">点击商店购买</span>
                     </div>
-                    <div className="w-16 h-22 bg-white border-2 border-[#FFB6C1] rounded-xl p-1 flex flex-col items-center justify-between shadow-xs">
-                      <span className="text-[7px] font-black text-[#FF6392]">JOKER</span>
-                      <span className="text-base">🎩</span>
-                      <span className="text-[7px] font-black text-[#FF6392]">JOKER</span>
-                    </div>
-                  </>
-                )}
+                  ))}
+                </div>
               </div>
             </div>
 
@@ -401,50 +433,75 @@ export const BattleScreen: React.FC<BattleScreenProps> = ({
             )}
           </div>
 
-          {/* Middle Jokers */}
-          <div className="p-3 flex flex-col items-center gap-2 shrink-0">
-            <div className="bg-[#A8D1E7] text-white font-black text-[11px] px-4 py-0.5 rounded-full shadow-2xs border border-white flex items-center gap-1">
-              <span>✦ 本回合特殊牌 ✦</span>
-              {bossRule?.disabledJokerIndices && bossRule.disabledJokerIndices.length > 0 && (
-                <span className="text-[9px] bg-rose-500 text-white px-1.5 rounded-full font-bold">部分小丑已封印</span>
-              )}
-            </div>
-
-            <div className="flex items-center justify-center gap-2 overflow-x-auto w-full py-1">
-              {jokers.length > 0 ? (
-                jokers.slice(0, 3).map((joker, idx) => {
-                  const isDisabledJoker = bossRule?.disabledJokerIndices?.includes(idx);
-                  return (
-                    <div key={joker.id + idx} className="relative">
-                      <JokerCard item={joker} type="joker" />
-                      {isDisabledJoker && (
-                        <div className="absolute inset-0 bg-slate-900/60 rounded-2xl backdrop-blur-2xs flex flex-col items-center justify-center text-white z-10 border-2 border-rose-400">
-                          <Lock className="w-5 h-5 text-rose-300 animate-pulse" />
-                          <span className="text-[9px] font-black text-rose-200 mt-0.5">已封印</span>
+          {/* Middle Special Cards Area (Jokers & Consumables) */}
+          <div className="p-2 flex flex-col items-center gap-1.5 shrink-0 w-full overflow-x-auto">
+            <div className="flex items-start justify-center gap-2 overflow-x-auto w-full py-0.5">
+              {/* Jokers Area */}
+              <div className="flex flex-col items-center gap-1 bg-white/60 backdrop-blur-2xs p-1.5 rounded-2xl border border-[#A2C4E5] shadow-2xs">
+                <div className="bg-[#A8D1E7] text-white font-black text-[9px] px-2.5 py-0.5 rounded-full flex items-center gap-1 shadow-2xs border border-white">
+                  <span>🐼 小丑 ({jokers.length}/5)</span>
+                  {bossRule?.disabledJokerIndices && bossRule.disabledJokerIndices.length > 0 && (
+                    <span className="text-[8px] bg-rose-500 text-white px-1 rounded-full font-bold">封印中</span>
+                  )}
+                </div>
+                <div className="flex items-center gap-1.5 min-h-[105px]">
+                  {jokers.length > 0 ? (
+                    jokers.map((joker, idx) => {
+                      const isDisabledJoker = bossRule?.disabledJokerIndices?.includes(idx);
+                      return (
+                        <div key={joker.id + idx} className="relative">
+                          <JokerCard
+                            item={joker}
+                            type="joker"
+                            onSell={onSellJoker ? () => onSellJoker(joker.id) : undefined}
+                          />
+                          {isDisabledJoker && (
+                            <div className="absolute inset-0 bg-slate-900/60 rounded-2xl backdrop-blur-2xs flex flex-col items-center justify-center text-white z-10 border-2 border-rose-400">
+                              <Lock className="w-4 h-4 text-rose-300 animate-pulse" />
+                              <span className="text-[8px] font-black text-rose-200 mt-0.5">已封印</span>
+                            </div>
+                          )}
                         </div>
-                      )}
+                      );
+                    })
+                  ) : (
+                    <div className="w-20 h-28 border-2 border-dashed border-[#FFB6C1] rounded-2xl bg-white/60 flex flex-col items-center justify-center text-[#FF6392] text-[10px] font-bold">
+                      <span className="text-lg">🤡</span>
+                      <span>空小丑槽</span>
                     </div>
-                  );
-                })
-              ) : (
-                <>
-                  <div className="w-20 h-28 bg-white border-2 border-[#FFB6C1] rounded-2xl p-1 flex flex-col items-center justify-between shadow-xs">
-                    <span className="text-[8px] font-black text-[#FF6392]">JOKER</span>
-                    <span className="text-2xl">🤡</span>
-                    <span className="text-[8px] font-black text-[#FF6392]">JOKER</span>
-                  </div>
-                  <div className="w-20 h-28 bg-white border-2 border-[#FFB6C1] rounded-2xl p-1 flex flex-col items-center justify-between shadow-xs">
-                    <span className="text-[8px] font-black text-[#FF6392]">JOKER</span>
-                    <span className="text-2xl">🎪</span>
-                    <span className="text-[8px] font-black text-[#FF6392]">JOKER</span>
-                  </div>
-                  <div className="w-20 h-28 bg-white border-2 border-[#FFB6C1] rounded-2xl p-1 flex flex-col items-center justify-between shadow-xs">
-                    <span className="text-[8px] font-black text-[#FF6392]">JOKER</span>
-                    <span className="text-2xl">🎩</span>
-                    <span className="text-[8px] font-black text-[#FF6392]">JOKER</span>
-                  </div>
-                </>
-              )}
+                  )}
+                </div>
+              </div>
+
+              {/* Consumables Area */}
+              <div className="flex flex-col items-center gap-1 bg-white/60 backdrop-blur-2xs p-1.5 rounded-2xl border border-[#B794F4]/50 shadow-2xs">
+                <div className="bg-purple-500 text-white font-black text-[9px] px-2.5 py-0.5 rounded-full flex items-center gap-1 shadow-2xs border border-white">
+                  <Wand2 className="w-3 h-3" />
+                  <span>🔮 消耗牌 ({consumables.length}/2)</span>
+                </div>
+                <div className="flex items-center gap-1.5 min-h-[105px]">
+                  {consumables.map((item, idx) => (
+                    <div key={item.id + idx} className="relative">
+                      <JokerCard
+                        item={item}
+                        type={'targetSuit' in item ? 'tarot' : 'planet'}
+                        onClick={onUseConsumable ? () => onUseConsumable(item) : undefined}
+                        onSell={onSellConsumable ? () => onSellConsumable(item.id) : undefined}
+                      />
+                    </div>
+                  ))}
+                  {Array.from({ length: Math.max(0, 2 - consumables.length) }).map((_, i) => (
+                    <div
+                      key={i}
+                      className="w-20 h-28 border-2 border-dashed border-purple-300/80 rounded-2xl bg-purple-50/40 flex flex-col items-center justify-center text-purple-500 text-[10px] font-bold gap-0.5 text-center px-1"
+                    >
+                      <Sparkles className="w-4 h-4 text-purple-400" />
+                      <span>空消耗槽</span>
+                      <span className="text-[8px] text-purple-400 font-normal">商店购买</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
           </div>
 

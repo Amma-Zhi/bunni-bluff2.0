@@ -39,7 +39,8 @@ export const HandScoringOverlay: React.FC<HandScoringOverlayProps> = ({
   const [finalScore, setFinalScore] = useState<number>(0);
 
   // Floating delta tag for active step feedback
-  const [floatingText, setFloatingText] = useState<{ text: string; color: string } | null>(null);
+  const [stepId, setStepId] = useState<number>(0);
+  const [floatingText, setFloatingText] = useState<{ id: number; text: string; color: string } | null>(null);
 
   // Smooth numeric count-up state for total calculated hand score
   const totalCalculated = chips * mult;
@@ -53,7 +54,7 @@ export const HandScoringOverlay: React.FC<HandScoringOverlayProps> = ({
     const endVal = totalCalculated;
     if (startVal === endVal) return;
 
-    const duration = 700; // ms for smooth rolling score count-up per step
+    const duration = 300; // ms for smooth rolling score count-up per step
     let animationFrameId: number;
 
     const stepFn = (timestamp: number) => {
@@ -119,11 +120,16 @@ export const HandScoringOverlay: React.FC<HandScoringOverlayProps> = ({
       // 2. Score cards one by one (Checking scoringCards)
       let currentChips = handEval.baseChips;
       let currentMult = handEval.baseMult;
+      let stepCounter = 0;
 
       for (let i = 0; i < playedCards.length; i++) {
         const card = playedCards[i];
         setActiveCardIdx(i);
         soundEngine.playCardFlip();
+
+        stepCounter++;
+        const currentStepId = stepCounter;
+        setStepId(currentStepId);
 
         const isScoringCard = handEval.scoringCards.some(sc => sc.id === card.id) || hasSplashJoker;
 
@@ -143,13 +149,13 @@ export const HandScoringOverlay: React.FC<HandScoringOverlayProps> = ({
           setMult(currentMult);
 
           const deltaMsg = addMult > 0 ? `+${addChips} 筹码 / +${addMult} 倍率` : `+${addChips} 筹码`;
-          setFloatingText({ text: deltaMsg, color: 'text-[#3182CE] font-black' });
+          setFloatingText({ id: currentStepId, text: deltaMsg, color: 'text-[#3182CE] font-black' });
           soundEngine.playCardScorePop(i);
         } else {
-          setFloatingText({ text: `❌ 陪衬牌 (0筹码)`, color: 'text-slate-400 font-extrabold' });
+          setFloatingText({ id: currentStepId, text: `❌ 陪衬牌 (0筹码)`, color: 'text-slate-400 font-extrabold' });
         }
 
-        await new Promise(r => setTimeout(r, 800));
+        await new Promise(r => setTimeout(r, 450));
         if (isCancelled) return;
       }
 
@@ -160,11 +166,18 @@ export const HandScoringOverlay: React.FC<HandScoringOverlayProps> = ({
         const joker = jokers[j];
         setActiveJokerIdx(j);
 
+        stepCounter++;
+        const currentStepId = stepCounter;
+        setStepId(currentStepId);
+
         const isJokerDisabled = bossRule?.disabledJokerIndices?.includes(j);
 
         if (isJokerDisabled) {
-          setFloatingText({ text: `🔒 ${joker.name} 处于印封状态（失效）`, color: 'text-rose-500 font-extrabold' });
-          await new Promise(r => setTimeout(r, 600));
+          setFloatingText({ id: currentStepId, text: `🔒 ${joker.name} 处于印封状态（失效）`, color: 'text-rose-500 font-extrabold' });
+          await new Promise(r => setTimeout(r, 550));
+          if (isCancelled) return;
+          setFloatingText(null);
+          await new Promise(r => setTimeout(r, 150));
           if (isCancelled) return;
           continue;
         }
@@ -254,9 +267,9 @@ export const HandScoringOverlay: React.FC<HandScoringOverlayProps> = ({
 
         setChips(currentChips);
         setMult(currentMult);
-        setFloatingText({ text: jokerDesc, color: 'text-[#D69E2E] font-extrabold' });
+        setFloatingText({ id: currentStepId, text: jokerDesc, color: 'text-[#D69E2E] font-extrabold' });
 
-        await new Promise(r => setTimeout(r, 850));
+        await new Promise(r => setTimeout(r, 500));
         if (isCancelled) return;
       }
 
@@ -305,15 +318,16 @@ export const HandScoringOverlay: React.FC<HandScoringOverlayProps> = ({
         </div>
 
         {/* Floating Step Modifier Feedback Tag */}
-        <div className="h-6 flex items-center justify-center">
+        <div className="h-7 flex items-center justify-center my-0.5 relative z-20">
           <AnimatePresence mode="wait">
             {floatingText && (
               <motion.div
-                key={floatingText.text}
+                key={floatingText.id}
                 initial={{ opacity: 0, y: 10, scale: 0.8 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={{ opacity: 0, y: -10, scale: 0.8 }}
-                className={`px-3 py-1 rounded-full bg-white border-2 border-[#FBBFCA] shadow-xs font-black text-xs ${floatingText.color}`}
+                transition={{ duration: 0.15, ease: 'easeInOut' }}
+                className={`px-3.5 py-1 rounded-full bg-white border-2 border-[#FBBFCA] shadow-xs font-black text-xs sm:text-sm ${floatingText.color}`}
               >
                 {floatingText.text}
               </motion.div>
@@ -345,7 +359,7 @@ export const HandScoringOverlay: React.FC<HandScoringOverlayProps> = ({
 
         {/* Triggered Jokers Row */}
         {jokers.length > 0 && (
-          <div className="flex items-center justify-center gap-2 flex-wrap">
+          <div className="flex items-center justify-center gap-2 flex-wrap pt-1">
             {jokers.map((joker, idx) => (
               <motion.div
                 key={joker.id + idx}
@@ -391,8 +405,8 @@ export const HandScoringOverlay: React.FC<HandScoringOverlayProps> = ({
             <div className="flex items-center gap-1">
               <Zap className="w-4 h-4 sm:w-5 sm:h-5 fill-[#63B3ED] text-[#3182CE]" />
               <motion.span
-                key={chips}
-                initial={{ scale: 1.3, y: -3 }}
+                key={`chips-${stepId}-${chips}`}
+                initial={{ scale: 1.4, y: -4 }}
                 animate={{ scale: 1, y: 0 }}
                 transition={{ type: 'spring', stiffness: 500, damping: 18 }}
               >
@@ -409,8 +423,8 @@ export const HandScoringOverlay: React.FC<HandScoringOverlayProps> = ({
             <div className="flex items-center gap-1">
               <Sparkles className="w-4 h-4 sm:w-5 sm:h-5 fill-[#F8A4B8] text-[#D93856]" />
               <motion.span
-                key={mult}
-                initial={{ scale: 1.3, y: -3 }}
+                key={`mult-${stepId}-${mult}`}
+                initial={{ scale: 1.4, y: -4 }}
                 animate={{ scale: 1, y: 0 }}
                 transition={{ type: 'spring', stiffness: 500, damping: 18 }}
               >

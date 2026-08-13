@@ -81,6 +81,7 @@ export default function App() {
   const [blindType, setBlindType] = useState<BlindType>('small');
   const [currentScore, setCurrentScore] = useState<number>(0);
   const [targetScore, setTargetScore] = useState<number>(300);
+  const [isRoundCleared, setIsRoundCleared] = useState<boolean>(false);
   const [money, setMoney] = useState<number>(10);
   const [handsLeft, setHandsLeft] = useState<number>(4);
   const [discardsLeft, setDiscardsLeft] = useState<number>(3);
@@ -216,7 +217,8 @@ export default function App() {
     setDiscardsLeft(save.discardsLeft);
     setHandSize(save.handSize || 8);
     setCurrentScore(save.currentScore || 0);
-    setTargetScore(save.targetScore || getTargetScoreForBlind(save.ante, save.blindType));
+    setTargetScore(save.targetScore || getTargetScoreForBlind(save.ante, save.blindType, save.round));
+    setIsRoundCleared(save.isRoundCleared ?? false);
     setJokers(save.jokers || []);
     setConsumables(save.consumables || []);
     setHandLevels(save.handLevels || INITIAL_HAND_LEVELS);
@@ -258,7 +260,8 @@ export default function App() {
     setDiscardsLeft(3);
     setHandSize(8);
     setCurrentScore(0);
-    setTargetScore(getTargetScoreForBlind(1, 'small'));
+    setTargetScore(getTargetScoreForBlind(1, 'small', 1));
+    setIsRoundCleared(false);
     setJokers(initialJokers);
     setConsumables([]);
     setHandLevels(INITIAL_HAND_LEVELS);
@@ -382,6 +385,7 @@ export default function App() {
       });
 
       setMoney(prev => prev + totalEarned);
+      setIsRoundCleared(true);
       populateShop();
       setScreenState('shop');
       return;
@@ -400,6 +404,11 @@ export default function App() {
   };
 
   const handleNextRoundFromShop = () => {
+    if (!isRoundCleared) {
+      setScreenState('playing');
+      return;
+    }
+
     let nextBlind: BlindType = 'big';
     let nextRound = round + 1;
     let nextAnte = ante;
@@ -429,13 +438,14 @@ export default function App() {
     const initialHand = fullDeck.slice(0, handSize);
     const drawPile = fullDeck.slice(handSize);
 
-    const nextTarget = getTargetScoreForBlind(nextAnte, nextBlind);
+    const nextTarget = getTargetScoreForBlind(nextAnte, nextBlind, nextRound);
 
     setAnte(nextAnte);
     setRound(nextRound);
     setBlindType(nextBlind);
     setTargetScore(nextTarget);
     setCurrentScore(0);
+    setIsRoundCleared(false);
     setHandsLeft(4);
     setDiscardsLeft(3);
     setDeck(drawPile);
@@ -484,6 +494,114 @@ export default function App() {
       if (consumables.length < 2) {
         setConsumables(prev => [...prev, item as TarotCardData | PlanetCardData]);
       }
+    }
+  };
+
+  const handleUseConsumable = (item: TarotCardData | PlanetCardData) => {
+    // 1. Planet Cards (Level up hand)
+    if ('handType' in item) {
+      const planet = item as PlanetCardData;
+      setHandLevels(prev => {
+        const current = prev[planet.handType] || { level: 1, chips: 10, mult: 1 };
+        return {
+          ...prev,
+          [planet.handType]: {
+            level: current.level + 1,
+            chips: current.chips + planet.chipsBonus,
+            mult: current.mult + planet.multBonus,
+          },
+        };
+      });
+      setConsumables(prev => prev.filter(c => c.id !== item.id));
+      soundEngine.playFinalRewardChime();
+      alert(`✨【${planet.handType}】手牌等级提升至 Lv.${(handLevels[planet.handType]?.level || 1) + 1}！基础筹码 +${planet.chipsBonus}，基础倍率 +${planet.multBonus}`);
+      return;
+    }
+
+    // 2. Tarot Cards
+    const tarot = item as TarotCardData;
+
+    if (tarot.effect === 'money') {
+      setMoney(prev => prev + 15);
+      setConsumables(prev => prev.filter(c => c.id !== item.id));
+      soundEngine.playCoin();
+      alert('✨【聚宝盆】魔法发挥！获得 🪙15 金币！');
+      return;
+    }
+
+    const selectedCards = handCards.filter(c => selectedCardIds.includes(c.id));
+    const selectedIds = new Set(selectedCardIds);
+
+    if (tarot.effect === 'suit_change') {
+      if (selectedCards.length === 0 || selectedCards.length > 3) {
+        alert('✨【花色转变魔法】请先在下方手牌中点击勾选 1~3 张要转换花色的卡牌！');
+        return;
+      }
+      const targetSuit = tarot.targetSuit || 'hearts';
+      const suitName = targetSuit === 'hearts' ? '红桃' : targetSuit === 'spades' ? '黑桃' : targetSuit === 'diamonds' ? '方块' : '梅花';
+
+      setHandCards(prev => prev.map(c => selectedIds.has(c.id) ? { ...c, suit: targetSuit } : c));
+      setDeck(prev => prev.map(c => selectedIds.has(c.id) ? { ...c, suit: targetSuit } : c));
+      setConsumables(prev => prev.filter(c => c.id !== item.id));
+      setSelectedCardIds([]);
+      soundEngine.playCardScorePop(1);
+      alert(`✨ 成功将选择的 ${selectedCards.length} 张卡牌转换为【${suitName}】！`);
+      return;
+    }
+
+    if (tarot.effect === 'enhancement') {
+      if (selectedCards.length === 0) {
+        alert('✨【卡牌强化魔法】请先在下方手牌中点击勾选要强化的卡牌！');
+        return;
+      }
+      const enhancement = tarot.targetEnhancement || 'bonus';
+      const enhancementName =
+        enhancement === 'glass' ? '水晶玻璃牌(X2倍率)' :
+        enhancement === 'gold' ? '黄金牌(每回合加金币)' :
+        enhancement === 'steel' ? '钢铁牌(手牌保留X1.5倍)' :
+        enhancement === 'lucky' ? '幸运牌(概率加金与倍率)' :
+        enhancement === 'mult' ? '倍率卡(+4倍率)' : '加分卡(+30筹码)';
+
+      setHandCards(prev => prev.map(c => selectedIds.has(c.id) ? { ...c, enhancement } : c));
+      setDeck(prev => prev.map(c => selectedIds.has(c.id) ? { ...c, enhancement } : c));
+      setConsumables(prev => prev.filter(c => c.id !== item.id));
+      setSelectedCardIds([]);
+      soundEngine.playCardScorePop(2);
+      alert(`✨ 成功将选择的 ${selectedCards.length} 张卡牌升级为【${enhancementName}】！`);
+      return;
+    }
+
+    if (tarot.effect === 'copy') {
+      if (selectedCards.length !== 1) {
+        alert('✨【镜面魔法】请先在下方手牌中点击勾选 1 张要复制的卡牌！');
+        return;
+      }
+      const sourceCard = selectedCards[0];
+      const copiedCard: CardData = {
+        ...sourceCard,
+        id: `copied_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
+      };
+      setHandCards(prev => [...prev, copiedCard]);
+      setDeck(prev => [...prev, copiedCard]);
+      setConsumables(prev => prev.filter(c => c.id !== item.id));
+      setSelectedCardIds([]);
+      soundEngine.playCardScorePop(3);
+      alert(`✨ 成功复制了卡牌【${sourceCard.rank}】并放入手牌与牌组！`);
+      return;
+    }
+
+    if (tarot.effect === 'destroy') {
+      if (selectedCards.length === 0 || selectedCards.length > 2) {
+        alert('✨【魔法消除】请先在下方手牌中点击勾选 1~2 张要精简消除的卡牌！');
+        return;
+      }
+      setHandCards(prev => prev.filter(c => !selectedIds.has(c.id)));
+      setDeck(prev => prev.filter(c => !selectedIds.has(c.id)));
+      setConsumables(prev => prev.filter(c => c.id !== item.id));
+      setSelectedCardIds([]);
+      soundEngine.playCardScorePop(0);
+      alert(`✨ 成功从你的牌组中彻底销毁了 ${selectedCards.length} 张卡牌！`);
+      return;
     }
   };
 
@@ -601,6 +719,7 @@ export default function App() {
                 handCards={handCards}
                 selectedCardIds={selectedCardIds}
                 jokers={jokers}
+                consumables={consumables}
                 deckCount={deck.length || 24}
                 evaluatedHand={currentEvaluatedHand}
                 bossRule={bossRule || undefined}
@@ -615,6 +734,21 @@ export default function App() {
                 onOpenMenu={() => setShowHelpModal(true)}
                 onOpenSettings={() => setShowSettingsModal(true)}
                 onNavigateHome={() => setCurrentScreen('home')}
+                onUseConsumable={handleUseConsumable}
+                onSellConsumable={(itemId) => {
+                  const c = consumables.find(item => item.id === itemId);
+                  if (c) {
+                    setMoney(prev => prev + Math.max(1, Math.floor(c.cost / 2)));
+                    setConsumables(prev => prev.filter(item => item.id !== itemId));
+                  }
+                }}
+                onSellJoker={(jokerId) => {
+                  const j = jokers.find(item => item.id === jokerId);
+                  if (j) {
+                    setMoney(prev => prev + Math.max(1, Math.floor(j.cost / 2)));
+                    setJokers(prev => prev.filter(item => item.id !== jokerId));
+                  }
+                }}
                 activeCardBack={activeCardBack}
                 streak={3}
                 orientation={orientation}
@@ -683,6 +817,7 @@ export default function App() {
               setConsumables(prev => prev.filter(item => item.id !== itemId));
             }
           }}
+          onUseConsumable={handleUseConsumable}
           onRerollShop={() => {
             setMoney(prev => prev - 5);
             populateShop();
@@ -691,6 +826,7 @@ export default function App() {
           onClose={() => setScreenState('playing')}
           handLevels={handLevels}
           lastEarningsBreakdown={lastEarningsBreakdown || undefined}
+          isRoundCleared={isRoundCleared}
         />
       )}
 

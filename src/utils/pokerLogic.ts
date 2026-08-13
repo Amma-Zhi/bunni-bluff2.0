@@ -255,19 +255,40 @@ export function getSuitLabel(suit: Suit): string {
   }
 }
 
-// Calculate target score required for Ante & Blind Type
-export function getTargetScoreForBlind(ante: number, blindType: BlindType): number {
-  // Ramped difficulty curve: Ante 1 friendly, Ante 2-3 requires strategy, Ante 4+ rapidly escalates
-  const baseAnteScores = [400, 1200, 3500, 10000, 28000, 75000, 180000, 400000];
-  let anteBase = 400;
-  if (ante <= baseAnteScores.length) {
-    anteBase = baseAnteScores[ante - 1];
-  } else {
-    anteBase = 400000 * Math.pow(2.2, ante - 8);
-  }
+// Calculate target score required for Ante & Blind Type / Round Number
+const ROUND_TARGET_SCORES: number[] = [
+  300,      // Round 1 (Ante 1 Small)
+  500,      // Round 2 (Ante 1 Big)
+  1500,     // Round 3 (Ante 1 Boss)
+  2500,     // Round 4 (Ante 2 Small)
+  4000,     // Round 5 (Ante 2 Big)
+  6000,     // Round 6 (Ante 2 Boss)
+  9000,     // Round 7 (Ante 3 Small)
+  13000,    // Round 8 (Ante 3 Big)
+  18000,    // Round 9 (Ante 3 Boss)
+  25000,    // Round 10 (Ante 4 Small)
+  35000,    // Round 11 (Ante 4 Big)
+  50000,    // Round 12 (Ante 4 Boss)
+  75000,    // Round 13 (Ante 5 Small)
+  110000,   // Round 14 (Ante 5 Big)
+  160000,   // Round 15 (Ante 5 Boss)
+  240000,   // Round 16 (Ante 6 Small)
+  350000,   // Round 17 (Ante 6 Big)
+  500000,   // Round 18 (Ante 6 Boss)
+  750000,   // Round 19 (Ante 7 Small)
+  1100000,  // Round 20 (Ante 7 Big)
+  1600000,  // Round 21 (Ante 7 Boss)
+  2400000,  // Round 22 (Ante 8 Small)
+  3500000,  // Round 23 (Ante 8 Big)
+  5000000,  // Round 24 (Ante 8 Boss)
+];
 
-  if (blindType === 'small') return Math.floor(anteBase * 1.0);
-  if (blindType === 'big') return Math.floor(anteBase * 1.5);
-  // Boss blind
-  return Math.floor(anteBase * 2.0);
+export function getTargetScoreForBlind(ante: number, blindType: BlindType, roundNum?: number): number {
+  const r = roundNum || ((ante - 1) * 3 + (blindType === 'small' ? 1 : blindType === 'big' ? 2 : 3));
+  if (r >= 1 && r <= ROUND_TARGET_SCORES.length) {
+    return ROUND_TARGET_SCORES[r - 1];
+  }
+  const maxDefinedScore = ROUND_TARGET_SCORES[ROUND_TARGET_SCORES.length - 1];
+  const extraRounds = r - ROUND_TARGET_SCORES.length;
+  return Math.floor(maxDefinedScore * Math.pow(1.5, extraRounds));
 }

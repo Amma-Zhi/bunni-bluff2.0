@@ -26,11 +26,13 @@ interface ShopModalProps {
   onBuyVoucher: (voucher: VoucherData) => void;
   onSellJoker: (jokerId: string) => void;
   onSellConsumable: (itemId: string) => void;
+  onUseConsumable?: (item: TarotCardData | PlanetCardData) => void;
   onRerollShop: () => void;
   onNextRound: () => void;
   onClose?: () => void;
   handLevels: HandLevelMap;
   lastEarningsBreakdown?: { base: number; hands: number; interest: number; total: number };
+  isRoundCleared?: boolean;
 }
 
 export const ShopModal: React.FC<ShopModalProps> = ({
@@ -47,11 +49,13 @@ export const ShopModal: React.FC<ShopModalProps> = ({
   onBuyVoucher,
   onSellJoker,
   onSellConsumable,
+  onUseConsumable,
   onRerollShop,
   onNextRound,
   onClose,
   handLevels,
   lastEarningsBreakdown,
+  isRoundCleared = false,
 }) => {
   const rerollCost = 5;
 
@@ -120,16 +124,29 @@ export const ShopModal: React.FC<ShopModalProps> = ({
               </button>
             )}
 
-            <button
-              onClick={() => {
-                soundEngine.playPop();
-                onNextRound();
-              }}
-              className="bg-gradient-to-r from-[#F8A4B8] via-[#E85D75] to-[#D93856] hover:from-[#E85D75] hover:to-[#C53030] text-white font-black text-xs sm:text-sm px-4 sm:px-5 py-1.5 sm:py-2 rounded-full shadow-md transition-all flex items-center gap-1.5 active:scale-95 cursor-pointer border-2 border-white"
-            >
-              <span>进入下一关</span>
-              <ArrowRight className="w-4 h-4" />
-            </button>
+            {isRoundCleared ? (
+              <button
+                onClick={() => {
+                  soundEngine.playPop();
+                  onNextRound();
+                }}
+                className="bg-gradient-to-r from-[#F8A4B8] via-[#E85D75] to-[#D93856] hover:from-[#E85D75] hover:to-[#C53030] text-white font-black text-xs sm:text-sm px-4 sm:px-5 py-1.5 sm:py-2 rounded-full shadow-md transition-all flex items-center gap-1.5 active:scale-95 cursor-pointer border-2 border-white"
+              >
+                <span>进入下一关</span>
+                <ArrowRight className="w-4 h-4" />
+              </button>
+            ) : (
+              <button
+                onClick={() => {
+                  soundEngine.playPop();
+                  if (onClose) onClose();
+                }}
+                className="bg-gradient-to-r from-[#FFB6C1] to-[#FF85A1] hover:from-[#FF85A1] hover:to-[#FF6392] text-white font-black text-xs sm:text-sm px-4 sm:px-5 py-1.5 sm:py-2 rounded-full shadow-md transition-all flex items-center gap-1.5 active:scale-95 cursor-pointer border-2 border-white"
+              >
+                <span>返回对战</span>
+                <ArrowRight className="w-4 h-4" />
+              </button>
+            )}
           </div>
         </div>
 
@@ -203,6 +220,7 @@ export const ShopModal: React.FC<ShopModalProps> = ({
                       key={item.id + idx}
                       item={item}
                       type={'targetSuit' in item ? 'tarot' : 'planet'}
+                      onClick={onUseConsumable ? () => onUseConsumable(item) : undefined}
                       onSell={() => {
                         soundEngine.playCoin();
                         onSellConsumable(item.id);

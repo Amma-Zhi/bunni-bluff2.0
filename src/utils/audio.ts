@@ -178,48 +178,37 @@ class SoundEngine {
       const popOsc = this.ctx.createOscillator();
       const popGain = this.ctx.createGain();
 
-      const basePopFreq = 350 + (stepIndex % 8) * 60;
+      const basePopFreq = 400 + (stepIndex % 8) * 50;
       popOsc.type = 'sine';
       popOsc.frequency.setValueAtTime(basePopFreq, now);
-      popOsc.frequency.exponentialRampToValueAtTime(basePopFreq * 2.2, now + 0.1);
+      popOsc.frequency.exponentialRampToValueAtTime(basePopFreq * 2.2, now + 0.06);
 
-      popGain.gain.setValueAtTime(0.25, now);
-      popGain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
+      popGain.gain.setValueAtTime(0.22, now);
+      popGain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
 
       popOsc.connect(popGain);
       popGain.connect(this.ctx.destination);
 
       popOsc.start(now);
-      popOsc.stop(now + 0.12);
+      popOsc.stop(now + 0.08);
 
-      // 2. High sparkle sheen tone cascade ("闪烁音效", synchronized duration ~0.4s)
-      const scaleNotes = [1046.50, 1318.51, 1567.98, 2093.00]; // C6, E6, G6, C7
-      const startNoteIdx = stepIndex % 4;
-      const notesToPlay = [
-        scaleNotes[startNoteIdx],
-        scaleNotes[(startNoteIdx + 1) % scaleNotes.length],
-        scaleNotes[(startNoteIdx + 2) % scaleNotes.length],
-      ];
+      // 2. High sparkle sheen tone ("闪烁")
+      const sparkleOsc = this.ctx.createOscillator();
+      const sparkleGain = this.ctx.createGain();
 
-      notesToPlay.forEach((freq, i) => {
-        if (!this.ctx) return;
-        const sparkleOsc = this.ctx.createOscillator();
-        const sparkleGain = this.ctx.createGain();
+      const sparkleFreq = 1500 + (stepIndex % 8) * 180;
+      sparkleOsc.type = 'triangle';
+      sparkleOsc.frequency.setValueAtTime(sparkleFreq, now + 0.02);
+      sparkleOsc.frequency.exponentialRampToValueAtTime(sparkleFreq * 1.3, now + 0.1);
 
-        const delay = 0.03 + i * 0.08;
-        sparkleOsc.type = 'triangle';
-        sparkleOsc.frequency.setValueAtTime(freq, now + delay);
-        sparkleOsc.frequency.exponentialRampToValueAtTime(freq * 1.15, now + delay + 0.18);
+      sparkleGain.gain.setValueAtTime(0.12, now + 0.02);
+      sparkleGain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
 
-        sparkleGain.gain.setValueAtTime(0.14, now + delay);
-        sparkleGain.gain.exponentialRampToValueAtTime(0.001, now + delay + 0.22);
+      sparkleOsc.connect(sparkleGain);
+      sparkleGain.connect(this.ctx.destination);
 
-        sparkleOsc.connect(sparkleGain);
-        sparkleGain.connect(this.ctx.destination);
-
-        sparkleOsc.start(now + delay);
-        sparkleOsc.stop(now + delay + 0.22);
-      });
+      sparkleOsc.start(now + 0.02);
+      sparkleOsc.stop(now + 0.12);
     } catch {
       // Ignore
     }

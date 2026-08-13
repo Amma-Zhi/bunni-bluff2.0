@@ -200,33 +200,16 @@ export const CardView: React.FC<CardViewProps> = ({
     <motion.div
       whileHover={isDisabled ? {} : { y: isSelected ? -18 : -6, scale: 1.05 }}
       whileTap={isDisabled ? {} : { scale: 0.95 }}
-      animate={
-        isScoring
-          ? {
-              y: [0, -32, -18, -24],
-              scale: [1, 1.3, 1.15, 1.2],
-              rotate: [0, -4, 4, 0],
-              boxShadow: [
-                '0 4px 12px -2px rgba(226, 208, 196, 0.4)',
-                '0 20px 36px -2px rgba(248, 164, 184, 0.9)',
-                '0 12px 24px -2px rgba(248, 164, 184, 0.75)',
-                '0 14px 28px -2px rgba(248, 164, 184, 0.8)',
-              ],
-            }
-          : {
-              y: isSelected ? -18 : 0,
-              scale: 1,
-              rotate: 0,
-              boxShadow: isSelected
-                ? '0 12px 24px -4px rgba(255, 133, 161, 0.5)'
-                : '0 4px 12px -2px rgba(226, 208, 196, 0.4)',
-            }
-      }
-      transition={
-        isScoring
-          ? { duration: 0.75, times: [0, 0.35, 0.7, 1], ease: 'easeOut' }
-          : { type: 'spring', stiffness: 400, damping: 25 }
-      }
+      animate={{
+        y: isScoring ? -16 : isSelected ? -18 : 0,
+        scale: isScoring ? 1.15 : 1,
+        boxShadow: isScoring
+          ? '0 12px 28px -2px rgba(248, 164, 184, 0.8)'
+          : isSelected
+          ? '0 12px 24px -4px rgba(255, 133, 161, 0.5)'
+          : '0 4px 12px -2px rgba(226, 208, 196, 0.4)',
+      }}
+      transition={{ type: 'spring', stiffness: 400, damping: 22 }}
       onClick={isDisabled ? undefined : onClick}
       className={`relative select-none cursor-pointer flex flex-col justify-between border-2 ${enhancementBorder} ${enhancementBg} ${sizeClasses[size]} ${
         isSelected ? 'ring-4 ring-[#FF85A1] border-[#FF6392]' : ''

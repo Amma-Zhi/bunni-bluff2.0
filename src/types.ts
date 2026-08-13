@@ -185,4 +185,5 @@ export interface GameSaveState {
   activeCardBack: string;
   activeDeckSkin: string;
   vouchers: string[]; // Bought voucher IDs
+  isRoundCleared?: boolean;
 }
