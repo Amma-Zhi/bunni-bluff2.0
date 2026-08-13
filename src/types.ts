@@ -162,8 +162,50 @@ export interface GameStats {
   dailyChallengesCompleted: number;
 }
 
+export interface JokerPersistentState {
+  [jokerId: string]: Record<string, number | string | boolean>;
+}
+
+/** Data that survives from one Blind to the next during a single Run. */
+export interface RunState {
+  ante: number;
+  money: number;
+  runDeck: CardData[];
+  jokers: JokerData[];
+  consumables: (TarotCardData | PlanetCardData)[];
+  vouchers: string[];
+  handLevels: HandLevelMap;
+  persistentJokerState: JokerPersistentState;
+  handSize: number;
+  isDaily: boolean;
+  dailyDate?: string;
+  activeCardBack: string;
+  activeDeckSkin: string;
+}
+
+/** Data that is reset whenever a new Blind starts. Card zones contain IDs only. */
+export interface RoundState {
+  blindType: BlindType;
+  currentScore: number;
+  targetScore: number;
+  drawPile: string[];
+  hand: string[];
+  discardPile: string[];
+  handsLeft: number;
+  discardsLeft: number;
+  bossRule?: BossRule;
+  isCleared: boolean;
+}
+
 export interface GameSaveState {
-  version: number;
+  version: 2;
+  runState: RunState;
+  roundState: RoundState;
+}
+
+/** Version 1 is kept only so storage.ts can safely migrate old Runs. */
+export interface LegacyGameSaveState {
+  version?: 1;
   ante: number;
   round: number;
   blindType: BlindType;
@@ -187,3 +229,5 @@ export interface GameSaveState {
   vouchers: string[]; // Bought voucher IDs
   isRoundCleared?: boolean;
 }
+
+export type StoredGameSaveState = GameSaveState | LegacyGameSaveState;

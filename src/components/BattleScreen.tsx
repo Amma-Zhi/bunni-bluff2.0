@@ -1,16 +1,15 @@
 import React from 'react';
 import { motion } from 'motion/react';
-import { BossRule, CardData, HandEvaluation, JokerData, PlanetCardData, TarotCardData } from '../types';
+import { BlindType, BossRule, CardData, HandEvaluation, JokerData, PlanetCardData, TarotCardData } from '../types';
 import { CardView } from './CardView';
 import { JokerCard } from './JokerCard';
-import { Plus, Menu, Newspaper, Home, Settings, Lock, ShieldAlert, Wand2, Sparkles } from 'lucide-react';
+import { Menu, Newspaper, Home, Settings, Lock, ShieldAlert, Wand2, Sparkles } from 'lucide-react';
 
 interface BattleScreenProps {
   currentScore: number;
   targetScore: number;
-  round: number;
-  maxRound?: number;
   ante: number;
+  blindType: BlindType;
   money: number;
   handsLeft: number;
   discardsLeft: number;
@@ -24,14 +23,11 @@ interface BattleScreenProps {
   onToggleSelectCard: (id: string) => void;
   onPlayHand: () => void;
   onDiscard: () => void;
-  onOpenShop: () => void;
   onOpenDeckView: () => void;
   onOpenMenu: () => void;
   onOpenSettings?: () => void;
   onNavigateHome?: () => void;
   onUseConsumable?: (item: TarotCardData | PlanetCardData) => void;
-  onSellConsumable?: (itemId: string) => void;
-  onSellJoker?: (jokerId: string) => void;
   activeCardBack?: string;
   streak?: number;
   orientation?: 'portrait' | 'landscape';
@@ -40,9 +36,8 @@ interface BattleScreenProps {
 export const BattleScreen: React.FC<BattleScreenProps> = ({
   currentScore,
   targetScore,
-  round,
-  maxRound = 8,
   ante,
+  blindType,
   money,
   handsLeft,
   discardsLeft,
@@ -56,19 +51,19 @@ export const BattleScreen: React.FC<BattleScreenProps> = ({
   onToggleSelectCard,
   onPlayHand,
   onDiscard,
-  onOpenShop,
   onOpenDeckView,
   onOpenMenu,
   onOpenSettings,
   onNavigateHome,
   onUseConsumable,
-  onSellConsumable,
-  onSellJoker,
   activeCardBack = 'card_back_sakura',
   streak = 3,
   orientation = 'landscape',
 }) => {
   const isLandscape = orientation === 'landscape';
+  const blindLabel = blindType === 'small' ? 'Small' : blindType === 'big' ? 'Big' : 'Boss';
+  const blindOrder: BlindType[] = ['small', 'big', 'boss'];
+  const activeBlindIndex = blindOrder.indexOf(blindType);
 
   const selectedCards = handCards.filter((c) => selectedCardIds.includes(c.id));
 
@@ -88,7 +83,7 @@ export const BattleScreen: React.FC<BattleScreenProps> = ({
         <div className="relative z-10 w-full h-full flex items-stretch justify-between gap-3 my-auto">
           {/* Left Column: Dashboard Stats */}
           <div className="w-[220px] bg-gingham-blue border-2 border-[#A2C4E5] rounded-3xl p-3 flex flex-col justify-between shadow-xs shrink-0">
-            {/* Top Round & Ante Badge */}
+            {/* Top Ante & Blind Badge */}
             <div className="flex items-center justify-between gap-1">
               <div className="flex flex-col">
                 <span className="text-[10px] text-[#537188] font-bold">分数</span>
@@ -97,12 +92,12 @@ export const BattleScreen: React.FC<BattleScreenProps> = ({
                 </span>
               </div>
               <div className="w-14 h-12 rounded-full bg-white border border-[#FFB6C1] flex flex-col items-center justify-center shadow-2xs">
-                <span className="text-[9px] text-slate-400 font-extrabold">回合</span>
+                <span className="text-[9px] text-slate-400 font-extrabold">Ante</span>
                 <span className="text-xs font-black text-slate-800 leading-none">
-                  {round}/{maxRound}
+                  {ante}/8
                 </span>
                 <span className="text-[8px] text-[#FF6392] font-black">
-                  {ante > 8 ? `高难度 Ante ${ante}` : `Ante ${ante}`}
+                  {blindLabel} Blind
                 </span>
               </div>
             </div>
@@ -113,12 +108,6 @@ export const BattleScreen: React.FC<BattleScreenProps> = ({
               <div className="flex items-center gap-1">
                 <span className="text-xs">🪙</span>
                 <span className="text-sm font-black text-slate-800">{money.toLocaleString()}</span>
-                <button
-                  onClick={onOpenShop}
-                  className="w-4 h-4 rounded-full bg-[#A8D1E7] text-white flex items-center justify-center font-bold text-xs hover:bg-[#749BC2] cursor-pointer"
-                >
-                  <Plus className="w-3 h-3" />
-                </button>
               </div>
             </div>
 
@@ -128,13 +117,23 @@ export const BattleScreen: React.FC<BattleScreenProps> = ({
                 <span className="text-slate-400 font-bold">目标</span>
                 <span className="font-black text-[#FF6392]">{targetScore.toLocaleString()}</span>
               </div>
+              <div className="flex items-center justify-center gap-1 border-b border-slate-100 pb-1">
+                {blindOrder.map((type, index) => (
+                  <span
+                    key={type}
+                    className={`text-[8px] font-black px-1 rounded-full ${index === activeBlindIndex ? 'bg-[#FF85A1] text-white' : 'text-slate-400'}`}
+                  >
+                    {type === 'small' ? 'Small' : type === 'big' ? 'Big' : 'Boss'} {index < activeBlindIndex ? '✓' : index === activeBlindIndex ? '●' : '○'}
+                  </span>
+                ))}
+              </div>
               <div className="flex items-center justify-between text-[10px] border-b border-slate-100 pb-1">
                 <span className="text-slate-400 font-bold">牌型</span>
                 <span className="font-black text-slate-800">{evaluatedHand?.handType || '高牌'}</span>
               </div>
               <div className="flex items-center justify-between text-[10px]">
                 <span className="text-slate-400 font-bold">倍率</span>
-                <span className="font-black text-[#FF6392]">x{evaluatedHand?.mult || 1.0}</span>
+                <span className="font-black text-[#FF6392]">x{evaluatedHand?.baseMult || 1.0}</span>
               </div>
             </div>
 
@@ -207,7 +206,6 @@ export const BattleScreen: React.FC<BattleScreenProps> = ({
                           <JokerCard
                             item={joker}
                             type="joker"
-                            onSell={onSellJoker ? () => onSellJoker(joker.id) : undefined}
                           />
                           {isDisabledJoker && (
                             <div className="absolute inset-0 bg-slate-900/60 rounded-2xl backdrop-blur-2xs flex flex-col items-center justify-center text-white z-10 border-2 border-rose-400">
@@ -240,7 +238,6 @@ export const BattleScreen: React.FC<BattleScreenProps> = ({
                         item={item}
                         type={'targetSuit' in item ? 'tarot' : 'planet'}
                         onClick={onUseConsumable ? () => onUseConsumable(item) : undefined}
-                        onSell={onSellConsumable ? () => onSellConsumable(item.id) : undefined}
                       />
                     </div>
                   ))}
@@ -251,7 +248,7 @@ export const BattleScreen: React.FC<BattleScreenProps> = ({
                     >
                       <Sparkles className="w-4 h-4 text-purple-400" />
                       <span>空消耗槽</span>
-                      <span className="text-[8px] text-purple-400 font-normal">点击商店购买</span>
+                      <span className="text-[8px] text-purple-400 font-normal">通关后商店购买</span>
                     </div>
                   ))}
                 </div>
@@ -310,16 +307,7 @@ export const BattleScreen: React.FC<BattleScreenProps> = ({
 
           {/* Right Column: Action Buttons */}
           <div className="w-[140px] flex flex-col justify-center gap-2 shrink-0">
-            {currentScore >= targetScore ? (
-              <button
-                onClick={onOpenShop}
-                className="py-4 px-2 rounded-2xl font-black text-xs flex flex-col items-center justify-center gap-1.5 bg-gradient-to-r from-emerald-500 via-teal-500 to-emerald-600 text-white shadow-xl animate-pulse cursor-pointer border-2 border-white"
-              >
-                <span className="text-sm">🎉 关卡已通关</span>
-                <span className="text-[10px] bg-white/20 px-2 py-0.5 rounded-full">进入下一关 ➔</span>
-              </button>
-            ) : (
-              <>
+            <>
                 <button
                   onClick={onPlayHand}
                   disabled={handsLeft <= 0 || selectedCardIds.length === 0}
@@ -340,21 +328,7 @@ export const BattleScreen: React.FC<BattleScreenProps> = ({
                   <span>弃牌 ({bossRule?.disableDiscards ? 0 : discardsLeft})</span>
                 </button>
 
-                <button
-                  onClick={onOpenShop}
-                  className="py-3 rounded-2xl font-black text-xs flex items-center justify-center gap-1 btn-pink-pill transition-all cursor-pointer"
-                >
-                  <span>🎀 商店</span>
-                </button>
-
-                <button
-                  onClick={onOpenShop}
-                  className="py-3 rounded-2xl font-black text-xs flex items-center justify-center gap-1 btn-blue-pill transition-all cursor-pointer"
-                >
-                  <span>刷新 🪙10</span>
-                </button>
-              </>
-            )}
+            </>
           </div>
         </div>
       ) : (
@@ -378,12 +352,12 @@ export const BattleScreen: React.FC<BattleScreenProps> = ({
               <div className="flex flex-col items-center relative">
                 <span className="text-xl drop-shadow-2xs -mb-2.5 z-20">🎀</span>
                 <div className="w-20 h-16 rounded-full bg-white border-2 border-[#FFB6C1] shadow-xs flex flex-col items-center justify-center pt-2">
-                  <span className="text-[10px] text-slate-400 font-extrabold">回合</span>
+                  <span className="text-[10px] text-slate-400 font-extrabold">Ante</span>
                   <span className="text-sm font-black text-slate-800 leading-none my-0.5">
-                    {round}/{maxRound}
+                    {ante}/8
                   </span>
                   <span className="text-[9px] text-[#FF6392] font-black bg-[#FFF0F3] px-2 rounded-full">
-                    {ante > 8 ? `高难度 Ante ${ante}` : `Ante ${ante}`}
+                    {blindLabel} Blind
                   </span>
                 </div>
               </div>
@@ -395,12 +369,6 @@ export const BattleScreen: React.FC<BattleScreenProps> = ({
                   <span className="text-base font-black text-slate-800">
                     {money.toLocaleString()}
                   </span>
-                  <button
-                    onClick={onOpenShop}
-                    className="w-5 h-5 rounded-full bg-[#A8D1E7] text-white flex items-center justify-center font-bold text-xs hover:bg-[#749BC2] cursor-pointer"
-                  >
-                    <Plus className="w-3.5 h-3.5" />
-                  </button>
                 </div>
               </div>
             </div>
@@ -419,9 +387,19 @@ export const BattleScreen: React.FC<BattleScreenProps> = ({
               <div className="flex flex-col">
                 <span className="text-[9px] text-slate-400 font-bold">倍率</span>
                 <span className="text-xs font-black text-[#FF6392]">
-                  {selectedCards.length > 0 && evaluatedHand ? `x${evaluatedHand.mult}` : '-'}
+                  {selectedCards.length > 0 && evaluatedHand ? `x${evaluatedHand.baseMult}` : '-'}
                 </span>
               </div>
+            </div>
+            <div className="mt-1.5 flex items-center justify-center gap-1">
+              {blindOrder.map((type, index) => (
+                <span
+                  key={type}
+                  className={`text-[9px] font-black px-2 py-0.5 rounded-full border ${index === activeBlindIndex ? 'bg-[#FF85A1] text-white border-white' : 'bg-white/70 text-slate-400 border-[#C6E2FF]'}`}
+                >
+                  {type === 'small' ? 'Small' : type === 'big' ? 'Big' : 'Boss'} {index < activeBlindIndex ? '✓' : index === activeBlindIndex ? '●' : '○'}
+                </span>
+              ))}
             </div>
 
             {/* Boss Rule Alert Badge Portrait */}
@@ -453,7 +431,6 @@ export const BattleScreen: React.FC<BattleScreenProps> = ({
                           <JokerCard
                             item={joker}
                             type="joker"
-                            onSell={onSellJoker ? () => onSellJoker(joker.id) : undefined}
                           />
                           {isDisabledJoker && (
                             <div className="absolute inset-0 bg-slate-900/60 rounded-2xl backdrop-blur-2xs flex flex-col items-center justify-center text-white z-10 border-2 border-rose-400">
@@ -486,7 +463,6 @@ export const BattleScreen: React.FC<BattleScreenProps> = ({
                         item={item}
                         type={'targetSuit' in item ? 'tarot' : 'planet'}
                         onClick={onUseConsumable ? () => onUseConsumable(item) : undefined}
-                        onSell={onSellConsumable ? () => onSellConsumable(item.id) : undefined}
                       />
                     </div>
                   ))}
@@ -497,7 +473,7 @@ export const BattleScreen: React.FC<BattleScreenProps> = ({
                     >
                       <Sparkles className="w-4 h-4 text-purple-400" />
                       <span>空消耗槽</span>
-                      <span className="text-[8px] text-purple-400 font-normal">商店购买</span>
+                      <span className="text-[8px] text-purple-400 font-normal">通关后商店购买</span>
                     </div>
                   ))}
                 </div>
@@ -558,15 +534,7 @@ export const BattleScreen: React.FC<BattleScreenProps> = ({
 
           {/* Bottom Actions Bar */}
           <div className="p-3 pt-1 flex flex-col gap-2 shrink-0">
-            {currentScore >= targetScore ? (
-              <button
-                onClick={onOpenShop}
-                className="py-3 px-4 rounded-2xl font-black text-xs sm:text-sm flex items-center justify-center gap-2 bg-gradient-to-r from-emerald-500 via-teal-500 to-emerald-600 text-white shadow-xl animate-pulse cursor-pointer border-2 border-white"
-              >
-                <span>🎉 关卡盲注已通关！点击【进入商店 / 下一关】➔</span>
-              </button>
-            ) : (
-              <div className="grid grid-cols-4 gap-2">
+            <div className="grid grid-cols-2 gap-2">
                 <button
                   onClick={onPlayHand}
                   disabled={handsLeft <= 0 || selectedCardIds.length === 0}
@@ -587,21 +555,7 @@ export const BattleScreen: React.FC<BattleScreenProps> = ({
                   <span>弃牌 ({bossRule?.disableDiscards ? 0 : discardsLeft})</span>
                 </button>
 
-                <button
-                  onClick={onOpenShop}
-                  className="py-2.5 rounded-full font-black text-xs flex items-center justify-center gap-1 btn-pink-pill transition-all cursor-pointer"
-                >
-                  <span>🎀 商店</span>
-                </button>
-
-                <button
-                  onClick={onOpenShop}
-                  className="py-2.5 rounded-full font-black text-xs flex items-center justify-center gap-1 btn-blue-pill transition-all cursor-pointer"
-                >
-                  <span>刷新 🪙10</span>
-                </button>
-              </div>
-            )}
+            </div>
 
             <div className="bg-white rounded-2xl p-2 border border-[#C6E2FF] flex items-center justify-between text-slate-700 shadow-2xs mt-1">
               <div className="flex items-center gap-1">
@@ -646,4 +600,3 @@ export const BattleScreen: React.FC<BattleScreenProps> = ({
     </div>
   );
 };
-

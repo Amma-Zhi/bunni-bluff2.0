@@ -205,7 +205,8 @@ export function evaluateHand(cards: CardData[], handLevels: HandLevelMap): HandE
   };
 }
 
-// Generate standard 52 playing card deck
+// Generate the 52 persistent Card entities for a new Run.
+// Shuffling belongs to Round creation, not deck creation.
 export function createStandardDeck(): CardData[] {
   const suits: Suit[] = ['hearts', 'diamonds', 'clubs', 'spades'];
   const ranks: Rank[] = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A'];
@@ -232,7 +233,7 @@ export function createStandardDeck(): CardData[] {
     }
   }
 
-  return shuffleDeck(deck);
+  return deck;
 }
 
 // Fisher-Yates deck shuffle
@@ -255,40 +256,23 @@ export function getSuitLabel(suit: Suit): string {
   }
 }
 
-// Calculate target score required for Ante & Blind Type / Round Number
-const ROUND_TARGET_SCORES: number[] = [
-  300,      // Round 1 (Ante 1 Small)
-  500,      // Round 2 (Ante 1 Big)
-  1500,     // Round 3 (Ante 1 Boss)
-  2500,     // Round 4 (Ante 2 Small)
-  4000,     // Round 5 (Ante 2 Big)
-  6000,     // Round 6 (Ante 2 Boss)
-  9000,     // Round 7 (Ante 3 Small)
-  13000,    // Round 8 (Ante 3 Big)
-  18000,    // Round 9 (Ante 3 Boss)
-  25000,    // Round 10 (Ante 4 Small)
-  35000,    // Round 11 (Ante 4 Big)
-  50000,    // Round 12 (Ante 4 Boss)
-  75000,    // Round 13 (Ante 5 Small)
-  110000,   // Round 14 (Ante 5 Big)
-  160000,   // Round 15 (Ante 5 Boss)
-  240000,   // Round 16 (Ante 6 Small)
-  350000,   // Round 17 (Ante 6 Big)
-  500000,   // Round 18 (Ante 6 Boss)
-  750000,   // Round 19 (Ante 7 Small)
-  1100000,  // Round 20 (Ante 7 Big)
-  1600000,  // Round 21 (Ante 7 Boss)
-  2400000,  // Round 22 (Ante 8 Small)
-  3500000,  // Round 23 (Ante 8 Big)
-  5000000,  // Round 24 (Ante 8 Boss)
-];
+// White-stake progression table. Ante and Blind are the only progression inputs.
+export const BLIND_TARGET_SCORES: Record<number, Record<BlindType, number>> = {
+  1: { small: 300, big: 450, boss: 600 },
+  2: { small: 800, big: 1200, boss: 1600 },
+  3: { small: 2000, big: 3000, boss: 4000 },
+  4: { small: 5000, big: 7500, boss: 10000 },
+  5: { small: 11000, big: 16500, boss: 22000 },
+  6: { small: 20000, big: 30000, boss: 40000 },
+  7: { small: 35000, big: 52500, boss: 70000 },
+  8: { small: 50000, big: 75000, boss: 100000 },
+};
 
-export function getTargetScoreForBlind(ante: number, blindType: BlindType, roundNum?: number): number {
-  const r = roundNum || ((ante - 1) * 3 + (blindType === 'small' ? 1 : blindType === 'big' ? 2 : 3));
-  if (r >= 1 && r <= ROUND_TARGET_SCORES.length) {
-    return ROUND_TARGET_SCORES[r - 1];
-  }
-  const maxDefinedScore = ROUND_TARGET_SCORES[ROUND_TARGET_SCORES.length - 1];
-  const extraRounds = r - ROUND_TARGET_SCORES.length;
-  return Math.floor(maxDefinedScore * Math.pow(1.5, extraRounds));
+export function getTargetScoreForBlind(ante: number, blindType: BlindType): number {
+  const normalizedAnte = Math.max(1, Math.floor(ante));
+  const defined = BLIND_TARGET_SCORES[Math.min(normalizedAnte, 8)][blindType];
+  if (normalizedAnte <= 8) return defined;
+
+  // Endless fallback, kept separate from the 8-Ante Run balance table.
+  return Math.floor(defined * Math.pow(1.5, normalizedAnte - 8));
 }
