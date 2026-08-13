@@ -167,16 +167,44 @@ export default function App() {
     }
   }, []);
 
-  const handleToggleSfx = (enabled: boolean) => {
+  // Register audio unlock listener on first user interaction for iOS Safari / WebKit support
+  useEffect(() => {
+    const handleFirstInteraction = async () => {
+      const success = await soundEngine.unlockAudio();
+      if (success) {
+        window.removeEventListener('pointerdown', handleFirstInteraction);
+        window.removeEventListener('touchstart', handleFirstInteraction);
+        window.removeEventListener('click', handleFirstInteraction);
+      }
+    };
+
+    window.addEventListener('pointerdown', handleFirstInteraction, { passive: true });
+    window.addEventListener('touchstart', handleFirstInteraction, { passive: true });
+    window.addEventListener('click', handleFirstInteraction, { passive: true });
+
+    return () => {
+      window.removeEventListener('pointerdown', handleFirstInteraction);
+      window.removeEventListener('touchstart', handleFirstInteraction);
+      window.removeEventListener('click', handleFirstInteraction);
+    };
+  }, []);
+
+  const handleToggleSfx = async (enabled: boolean) => {
     setSfxEnabled(enabled);
     soundEngine.setSfxEnabled(enabled);
     saveAudioSettings({ sfxEnabled: enabled, bgmVolume });
+    if (enabled) {
+      await soundEngine.unlockAudio();
+    }
   };
 
-  const handleChangeBgmVolume = (volume: number) => {
+  const handleChangeBgmVolume = async (volume: number) => {
     setBgmVolume(volume);
     soundEngine.setBgmVolume(volume / 100);
     saveAudioSettings({ sfxEnabled, bgmVolume: volume });
+    if (volume > 0) {
+      await soundEngine.unlockAudio();
+    }
   };
 
   const loadRunFromSave = (save: GameSaveState) => {

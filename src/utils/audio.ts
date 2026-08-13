@@ -5,24 +5,54 @@ class SoundEngine {
   private isMuted: boolean = false;
   private sfxEnabled: boolean = true;
   private bgmVolume: number = 0.8; // 0.0 to 1.0
-  private bgmGain: GainNode | null = null;
   private bgmInterval: number | null = null;
   private isBgmPlaying: boolean = false;
+  private audioUnlocked: boolean = false;
 
-  private initContext() {
+  private initContext(): AudioContext | null {
     if (!this.ctx) {
       const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
       if (AudioCtx) {
         this.ctx = new AudioCtx();
       }
     }
-    if (this.ctx && this.ctx.state === 'suspended') {
-      this.ctx.resume();
+    return this.ctx;
+  }
+
+  public isUnlocked(): boolean {
+    return this.audioUnlocked && this.ctx !== null && this.ctx.state === 'running';
+  }
+
+  public async unlockAudio(): Promise<boolean> {
+    const ctx = this.initContext();
+    if (!ctx) return false;
+
+    if (ctx.state === 'suspended') {
+      try {
+        await ctx.resume();
+      } catch {
+        // Ignore error during resume
+      }
     }
+
+    if (ctx.state === 'running') {
+      this.audioUnlocked = true;
+      if (this.bgmVolume > 0 && !this.isMuted && !this.isBgmPlaying) {
+        this.startBgm();
+      }
+      return true;
+    }
+
+    return false;
   }
 
   public setMuted(muted: boolean) {
     this.isMuted = muted;
+    if (muted) {
+      this.stopBgm();
+    } else if (this.bgmVolume > 0 && this.isUnlocked() && !this.isBgmPlaying) {
+      this.startBgm();
+    }
   }
 
   public getMuted(): boolean {
@@ -41,7 +71,9 @@ class SoundEngine {
     // Accepts 0-1 or 0-100
     const val = volume > 1 ? volume / 100 : volume;
     this.bgmVolume = Math.max(0, Math.min(1, val));
-    if (this.bgmVolume > 0 && !this.isBgmPlaying) {
+    if (this.bgmVolume <= 0) {
+      this.stopBgm();
+    } else if (this.isUnlocked() && !this.isMuted && !this.isBgmPlaying) {
       this.startBgm();
     }
   }
@@ -53,8 +85,7 @@ class SoundEngine {
   // Soft cute pop (for card select, button click)
   public playPop() {
     if (this.isMuted || !this.sfxEnabled) return;
-    this.initContext();
-    if (!this.ctx) return;
+    if (!this.isUnlocked() || !this.ctx) return;
 
     try {
       const osc = this.ctx.createOscillator();
@@ -81,8 +112,7 @@ class SoundEngine {
   // Play card sound (whoosh + flip)
   public playCardFlip() {
     if (this.isMuted || !this.sfxEnabled) return;
-    this.initContext();
-    if (!this.ctx) return;
+    if (!this.isUnlocked() || !this.ctx) return;
 
     try {
       const osc = this.ctx.createOscillator();
@@ -109,8 +139,7 @@ class SoundEngine {
   // Score count up step chime
   public playScoreStep(stepIndex: number = 0) {
     if (this.isMuted || !this.sfxEnabled) return;
-    this.initContext();
-    if (!this.ctx) return;
+    if (!this.isUnlocked() || !this.ctx) return;
 
     try {
       const osc = this.ctx.createOscillator();
@@ -140,8 +169,7 @@ class SoundEngine {
   // Crisp "Pop & Sparkle" sound for card evaluation step
   public playCardScorePop(stepIndex: number = 0) {
     if (this.isMuted || !this.sfxEnabled) return;
-    this.initContext();
-    if (!this.ctx) return;
+    if (!this.isUnlocked() || !this.ctx) return;
 
     try {
       const now = this.ctx.currentTime;
@@ -189,8 +217,7 @@ class SoundEngine {
   // Grand crisp reward chime when hand calculation completes
   public playFinalRewardChime() {
     if (this.isMuted || !this.sfxEnabled) return;
-    this.initContext();
-    if (!this.ctx) return;
+    if (!this.isUnlocked() || !this.ctx) return;
 
     try {
       const now = this.ctx.currentTime;
@@ -247,8 +274,7 @@ class SoundEngine {
   // Coin kaching sound
   public playCoin() {
     if (this.isMuted || !this.sfxEnabled) return;
-    this.initContext();
-    if (!this.ctx) return;
+    if (!this.isUnlocked() || !this.ctx) return;
 
     try {
       const now = this.ctx.currentTime;
@@ -277,8 +303,7 @@ class SoundEngine {
   // Magical Joker spark sound
   public playJokerTrigger() {
     if (this.isMuted || !this.sfxEnabled) return;
-    this.initContext();
-    if (!this.ctx) return;
+    if (!this.isUnlocked() || !this.ctx) return;
 
     try {
       const now = this.ctx.currentTime;
@@ -308,8 +333,7 @@ class SoundEngine {
   // Victory fanfare
   public playVictory() {
     if (this.isMuted || !this.sfxEnabled) return;
-    this.initContext();
-    if (!this.ctx) return;
+    if (!this.isUnlocked() || !this.ctx) return;
 
     try {
       const now = this.ctx.currentTime;
@@ -339,8 +363,7 @@ class SoundEngine {
   // Defeat cute boop
   public playDefeat() {
     if (this.isMuted || !this.sfxEnabled) return;
-    this.initContext();
-    if (!this.ctx) return;
+    if (!this.isUnlocked() || !this.ctx) return;
 
     try {
       const now = this.ctx.currentTime;
@@ -369,19 +392,27 @@ class SoundEngine {
 
   // Cheerful BGM loop
   public toggleBgm(): boolean {
-    this.initContext();
     if (this.isBgmPlaying) {
       this.stopBgm();
       return false;
     } else {
       this.startBgm();
-      return true;
+      return this.isBgmPlaying;
     }
   }
 
   public startBgm() {
-    if (this.isBgmPlaying || !this.ctx) return;
-    this.initContext();
+    if (this.isBgmPlaying) return;
+
+    const ctx = this.initContext();
+    if (!ctx || ctx.state !== 'running' || !this.audioUnlocked) return;
+    if (this.isMuted || this.bgmVolume <= 0) return;
+
+    if (this.bgmInterval) {
+      clearInterval(this.bgmInterval);
+      this.bgmInterval = null;
+    }
+
     this.isBgmPlaying = true;
 
     // Pleasant pentatonic melody sequence
@@ -394,7 +425,7 @@ class SoundEngine {
 
     let noteIdx = 0;
     this.bgmInterval = window.setInterval(() => {
-      if (this.isMuted || !this.ctx || !this.isBgmPlaying || this.bgmVolume <= 0) return;
+      if (this.isMuted || !this.ctx || !this.isBgmPlaying || this.bgmVolume <= 0 || this.ctx.state !== 'running') return;
       try {
         const freq = notes[noteIdx % notes.length];
         noteIdx++;
