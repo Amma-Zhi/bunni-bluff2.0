@@ -50,7 +50,6 @@ import {
   saveRedeemItems,
 } from './utils/storage';
 import { soundEngine } from './utils/audio';
-import { hapticTap, initializeNativeShell, setNativeOrientation } from './utils/native';
 
 // Components
 import { HomeScreen } from './components/HomeScreen';
@@ -75,24 +74,6 @@ export default function App() {
 
   // Screen Orientation mode: 'landscape' (default horizontal mobile) or 'portrait' (vertical mobile)
   const [orientation, setOrientation] = useState<'landscape' | 'portrait'>('landscape');
-
-  useEffect(() => {
-    void initializeNativeShell('landscape');
-
-    const handleNativeTap = (event: PointerEvent) => {
-      const target = event.target as Element | null;
-      if (target?.closest('button, [role="button"]')) void hapticTap();
-    };
-
-    document.addEventListener('pointerdown', handleNativeTap, { passive: true });
-    return () => document.removeEventListener('pointerdown', handleNativeTap);
-  }, []);
-
-  const toggleOrientation = () => {
-    const nextOrientation = orientation === 'landscape' ? 'portrait' : 'landscape';
-    setOrientation(nextOrientation);
-    void setNativeOrientation(nextOrientation);
-  };
 
   // Game Run State
   const [ante, setAnte] = useState<number>(1);
@@ -486,7 +467,7 @@ export default function App() {
       <div className="z-30 my-2 bg-white/90 backdrop-blur-md p-1.5 px-3 rounded-full border-2 border-[#FFD1DC] shadow-sm flex items-center gap-2 text-xs font-black">
         {/* Orientation Switcher */}
         <button
-          onClick={toggleOrientation}
+          onClick={() => setOrientation(orientation === 'landscape' ? 'portrait' : 'landscape')}
           className="px-3 py-1.5 rounded-full bg-[#FFF0F3] text-[#FF6392] hover:bg-[#FFD1DC] transition-all flex items-center gap-1.5 cursor-pointer border border-[#FFB6C1]"
         >
           <RotateCw className="w-3.5 h-3.5" />
